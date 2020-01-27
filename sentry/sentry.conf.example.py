@@ -29,7 +29,7 @@ SENTRY_USE_BIG_INTS = True
 # and thus various UI optimizations should be enabled.
 SENTRY_SINGLE_ORGANIZATION = True
 
-SENTRY_OPTIONS["system.event-retention-days"] = env('SENTRY_EVENT_RETENTION_DAYS') or 90
+SENTRY_OPTIONS["system.event-retention-days"] = int(env('SENTRY_EVENT_RETENTION_DAYS', '90'))
 
 #########
 # Redis #
@@ -211,11 +211,9 @@ SENTRY_FEATURES.update(
 
 ######################
 # GitHub Integration #
-#####################
+######################
 
-# GITHUB_APP_ID = 'YOUR_GITHUB_APP_ID'
-# GITHUB_API_SECRET = 'YOUR_GITHUB_API_SECRET'
-# GITHUB_EXTENDED_PERMISSIONS = ['repo']
+GITHUB_EXTENDED_PERMISSIONS = ['repo']
 
 #########################
 # Bitbucket Integration #
