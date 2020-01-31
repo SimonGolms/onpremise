@@ -2,14 +2,16 @@
 
 Official bootstrap for running your own [Sentry](https://sentry.io/) with [Docker](https://www.docker.com/).
 
+See [openshift/README.md](./openshift/README.md) for running on OpenShift
+
 ## Requirements
 
- * Docker 17.05.0+
- * Compose 1.19.0+
+- Docker 17.05.0+
+- Compose 1.19.0+
 
 ## Minimum Hardware Requirements:
 
- * You need at least 2400MB RAM
+- You need at least 2400MB RAM
 
 ## Setup
 
@@ -19,9 +21,9 @@ There may need to be modifications to the included example config files (`sentry
 
 The recommended way to customize your configuration is using the files below, in that order:
 
- * `config.yml`
- * `sentry.conf.py`
- * `.env` w/ environment variables
+- `config.yml`
+- `sentry.conf.py`
+- `.env` w/ environment variables
 
 We currently support a very minimal set of environment variables to promote other means of configuration.
 
@@ -43,11 +45,10 @@ The included `install.sh` script is meant to be idempotent and to bring you to t
 
 ## Resources
 
- * [Documentation](https://docs.sentry.io/server/)
- * [Bug Tracker](https://github.com/getsentry/onpremise/issues)
- * [Forums](https://forum.sentry.io/c/on-premise)
- * [Discord](https://discord.gg/mg5V76F) (Sentry Community, #sentry-server)
-
+- [Documentation](https://docs.sentry.io/server/)
+- [Bug Tracker](https://github.com/getsentry/onpremise/issues)
+- [Forums](https://forum.sentry.io/c/on-premise)
+- [Discord](https://discord.gg/mg5V76F) (Sentry Community, #sentry-server)
 
 [build-status-image]: https://api.travis-ci.com/getsentry/onpremise.svg?branch=master
 [build-status-url]: https://travis-ci.com/getsentry/onpremise

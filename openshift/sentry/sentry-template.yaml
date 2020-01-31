@@ -1,0 +1,267 @@
+apiVersion: v1
+kind: Template
+labels:
+  app: "sentry"
+  part-of: "sentry-on-premise"
+  template: "sentry-on-premise-build"
+metadata:
+  name: sentry-on-premise-build
+  annotations:
+    description: "Sentry is a realtime event logging and aggregation platform. It specializes in monitoring errors and extracting all the information needed to do a proper post-mortem without any of the hassle of the standard user feedback loop."
+    iconClass: "fa fa-bug"
+    openshift.io/display-name: "Sentry On-Premise Build"
+    openshift.io/documentation-url: "https://github.com/SimonGolms/sentry-onpremise-openshift"
+    tags: "sentry,monitoring,error,bugs"
+parameters:
+  - name: SENTRY_SECRET_KEY
+    displayName: Sentry Secret Key
+    description: A secret string used to configure sentry. Changing this value will result in all current sessions being invalidated.
+    generate: expression
+    from: "[a-zA-Z0-9]{50}"
+    required: true
+  - name: SENTRY_IMAGE_CONFIGMAP
+    displayName: Sentry Image Configmap
+    description: "Name of the configmap to create and to use for the sentry image"
+    value: sentry
+    required: true
+  - name: SENTRY_IMAGE_SECRETS
+    displayName: Sentry Image Secrets
+    description: "Name of the secret to create and to use for the sentry image"
+    value: sentry
+    required: true
+objects:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: "${SENTRY_IMAGE_CONFIGMAP}"
+    data:
+      SENTRY_EVENT_RETENTION_DAYS: "90"
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: "${SENTRY_IMAGE_SECRETS}"
+    type: Opaque
+    stringData:
+      SENTRY_POSTGRES_HOST: "postgres"
+      SENTRY_POSTGRES_PORT: ""
+      SENTRY_DB_NAME: "postgres"
+      SENTRY_DB_USER: "postgres"
+      SENTRY_DB_PASSWORD: ""
+      SENTRY_SECRET_KEY: "${SENTRY_SECRET_KEY}"
+      SENTRY_EMAIL_HOST: "mail.sentry.local"
+      SENTRY_EMAIL_PASSWORD: ""
+      SENTRY_EMAIL_USER: ""
+      SENTRY_EMAIL_PORT: "25"
+      SENTRY_EMAIL_USE_TLS: "False"
+      SENTRY_SERVER_EMAIL: "root@localhost"
+      SENTRY_MAILGUN_API_KEY: ""
+      SENTRY_SMTP_HOSTNAME: ""
+      LDAP_BIND_DN: ""
+      LDAP_BIND_PASSWORD: ""
+      LDAP_SERVER: "ldap://my.ldapserver.com"
+      LDAP_SELF_SIGNED_CERT: "False"
+      LDAP_USER_SEARCH_BASE_DN: "DC=domain,DC=com"
+      LDAP_USER_SEARCH_FILTER: "(&(objectClass=organizationalPerson)(|(sAMAccountName=%(user)s)(mail=%(user)s)))"
+      LDAP_GROUP_SEARCH_BASE_DN: "DC=domain,DC=com"
+      LDAP_GROUP_SEARCH_FILTER: "(objectClass=group)"
+      LDAP_DEFAULT_EMAIL_DOMAIN: "domain.com"
+      LDAP_DEFAULT_SENTRY_ORGANIZATION: "Sentry"
+      LDAP_SENTRY_ORGANIZATION_ROLE_TYPE: "member"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER: "sysadmins"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER: "CN=sentry-manager,DC=domain,DC=com"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN: "CN=sentry-admin,DC=domain,DC=com"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER: "CN=sentry-member,DC=domain,DC=com"
+      LDAP_DEBUG: "True"
+  - apiVersion: v1
+    kind: ImageStream
+    metadata:
+      annotations:
+        openshift.io/display-name: sentry
+        io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
+      labels:
+        io.sentry.service: sentry
+      name: sentry
+    spec:
+      lookupPolicy:
+        local: true
+      tags:
+        - annotations:
+            io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
+            openshift.io/display-name: sentry
+          from:
+            kind: DockerImage
+            name: sentry:latest
+          importPolicy: {}
+          name: latest
+  - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      annotations:
+        description: "Sentry On-Premise Build"
+        io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
+      name: sentry
+    spec:
+      failedBuildsHistoryLimit: 5
+      nodeSelector: null
+      output:
+        to:
+          kind: ImageStreamTag
+          name: "sentry:latest"
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        contextDir: "/openshift/sentry"
+        git:
+          uri: >-
+            https://github.com/SimonGolms/sentry-onpremise-openshift.git
+        sourceSecret:
+          name: cd-user-token
+        type: Git
+      strategy:
+        dockerStrategy:
+          env:
+            - name: LDAP_BIND_DN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_BIND_DN
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_BIND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_BIND_PASSWORD
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_SERVER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SERVER
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_USER_SEARCH_BASE_DN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_USER_SEARCH_BASE_DN
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_USER_SEARCH_FILTER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_USER_SEARCH_FILTER
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_GROUP_SEARCH_BASE_DN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_GROUP_SEARCH_BASE_DN
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_GROUP_SEARCH_FILTER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_GROUP_SEARCH_FILTER
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_DEFAULT_EMAIL_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_DEFAULT_EMAIL_DOMAIN
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_DEFAULT_SENTRY_ORGANIZATION
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_DEFAULT_SENTRY_ORGANIZATION
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: LDAP_DEBUG
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_DEBUG
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_EVENT_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  key: SENTRY_EVENT_RETENTION_DAYS
+                  name: "${SENTRY_IMAGE_CONFIGMAP}"
+            - name: SENTRY_EMAIL_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_HOST
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_EMAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_PASSWORD
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_EMAIL_USER
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_USER
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_EMAIL_PORT
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_PORT
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_EMAIL_USE_TLS
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_USE_TLS
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_SERVER_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_SERVER_EMAIL
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_MAILGUN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_MAILGUN_API_KEY
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_POSTGRES_HOST
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_POSTGRES_PORT
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_DB_NAME
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_DB_USER
+                  name: "${SENTRY_IMAGE_SECRETS}"
+            - name: SENTRY_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_DB_PASSWORD
+                  name: "${SENTRY_IMAGE_SECRETS}"
+        type: Docker
+      successfulBuildsHistoryLimit: 5
+      triggers:
+        - type: ConfigChange
