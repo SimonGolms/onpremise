@@ -1,0 +1,1887 @@
+apiVersion: v1
+kind: Template
+labels:
+  app: "sentry"
+  part-of: "sentry-on-premise"
+  template: "sentry-on-premise-quickstart"
+metadata:
+  name: "sentry-on-premise-quickstart"
+  annotations:
+    description: >-
+      Sentry is a realtime event logging and aggregation platform.
+      It specializes in monitoring errors and extracting all the information needed to do a proper post-mortem without any of the hassle of the standard user feedback loop.
+    iconClass: "fa fa-bug"
+    openshift.io/display-name: "Sentry On-Premise (Quickstart)"
+    openshift.io/documentation-url: "https://github.com/SimonGolms/sentry-onpremise-openshift"
+    tags: "sentry,monitoring,error,bugs,quickstart"
+parameters:
+  - name: SENTRY_SECRET_KEY
+    displayName: Sentry Secret Key
+    description: A secret string used to configure sentry. Changing this value will result in all current sessions being invalidated.
+    generate: expression
+    from: "[a-zA-Z0-9]{50}"
+    required: true
+  - name: SENTRY_HOST
+    displayName: Sentry Hostname
+    description: "A unique public application URL of Sentry (Route/host). The hostname can't be changed after the route is created."
+    value: sentry.example.com
+    required: true
+  - name: ADMIN_USERNAME
+    displayName: Admin Email Adresse
+    description: "The email adresse for initial admin"
+    value: admin@sentry.local
+    required: true
+  - name: ADMIN_PASSWORD
+    displayName: Admin Password
+    description: "The password for initial admin"
+    generate: expression
+    from: "[a-zA-Z0-9]{10}"
+    required: true
+  - name: SERVICE_ACCOUNT_NAME
+    displayName: Service Account Name with `anyuid`
+    description: "Specification of a serviceaccount which has an Security Context Constraints (scc) of `anyuid`, since some containers require root privileges."
+    value: "useroot"
+    required: true
+  # Postgres
+  - name: SENTRY_POSTGRES_HOST
+    value: "postgres"
+  - name: SENTRY_POSTGRES_PORT
+    value: ""
+  - name: SENTRY_DB_NAME
+    value: "postgres"
+  - name: SENTRY_DB_USER
+    value: "postgres"
+  - name: SENTRY_DB_PASSWORD
+    value: ""
+  # Mail
+  - name: SENTRY_EMAIL_HOST
+    value: "mail.sentry.local"
+  - name: SENTRY_EMAIL_PORT
+    value: "25"
+  - name: SENTRY_EMAIL_USER
+    value: ""
+  - name: SENTRY_EMAIL_PASSWORD
+    value: ""
+  - name: SENTRY_EMAIL_USE_TLS
+    value: "False"
+  - name: SENTRY_SERVER_EMAIL
+    value: "root@localhost"
+  - name: SENTRY_MAILGUN_API_KEY
+    value: ""
+  - name: SENTRY_SMTP_HOSTNAME
+    value: ""
+  # LDAP
+  - name: LDAP_BIND_DN
+    value: ""
+  - name: LDAP_BIND_PASSWORD
+    value: ""
+  - name: LDAP_SERVER
+    value: "ldap://my.ldapserver.com"
+  - name: LDAP_SELF_SIGNED_CERT
+    value: "False"
+  - name: LDAP_USER_SEARCH_BASE_DN
+    value: "DC=domain,DC=com"
+  - name: LDAP_USER_SEARCH_FILTER
+    value: "(&(objectClass=organizationalPerson)(|(sAMAccountName=%(user)s)(mail=%(user)s)))"
+  - name: LDAP_GROUP_SEARCH_BASE_DN
+    value: "DC=domain,DC=com"
+  - name: LDAP_GROUP_SEARCH_FILTER
+    value: "(objectClass=group)"
+  - name: LDAP_DEFAULT_EMAIL_DOMAIN
+    value: "domain.com"
+  - name: LDAP_DEFAULT_SENTRY_ORGANIZATION
+    value: "Sentry"
+  - name: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
+    value: "member"
+  - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
+    value: "sysadmins"
+  - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
+    value: "CN=sentry-manager,DC=domain,DC=com"
+  - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
+    value: "CN=sentry-admin,DC=domain,DC=com"
+  - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
+    value: "CN=sentry-member,DC=domain,DC=com"
+  - name: LDAP_DEBUG
+    value: "True"
+objects:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: "sentry-config"
+    data:
+      SENTRY_EVENT_RETENTION_DAYS: "90"
+  - apiVersion: v1
+    kind: Secret
+    metadata:
+      name: "sentry-secret"
+    type: Opaque
+    stringData:
+      SENTRY_POSTGRES_HOST: "${SENTRY_POSTGRES_HOST}"
+      SENTRY_POSTGRES_PORT: "${SENTRY_POSTGRES_PORT}"
+      SENTRY_DB_NAME: "${SENTRY_DB_NAME}"
+      SENTRY_DB_USER: "${SENTRY_DB_USER}"
+      SENTRY_DB_PASSWORD: "${SENTRY_DB_PASSWORD}"
+      SENTRY_SECRET_KEY: "${SENTRY_SECRET_KEY}"
+      SENTRY_EMAIL_HOST: "${SENTRY_EMAIL_HOST}"
+      SENTRY_EMAIL_PASSWORD: "${SENTRY_EMAIL_PASSWORD}"
+      SENTRY_EMAIL_USER: "${SENTRY_EMAIL_USER}"
+      SENTRY_EMAIL_PORT: "${SENTRY_EMAIL_PORT}"
+      SENTRY_EMAIL_USE_TLS: "${SENTRY_EMAIL_USE_TLS}"
+      SENTRY_SERVER_EMAIL: "${SENTRY_SERVER_EMAIL}"
+      SENTRY_MAILGUN_API_KEY: "${SENTRY_MAILGUN_API_KEY}"
+      SENTRY_SMTP_HOSTNAME: "${SENTRY_SMTP_HOSTNAME}"
+      LDAP_BIND_DN: "${LDAP_BIND_DN}"
+      LDAP_BIND_PASSWORD: "${LDAP_BIND_PASSWORD}"
+      LDAP_SERVER: "${LDAP_SERVER}"
+      LDAP_SELF_SIGNED_CERT: "${LDAP_SELF_SIGNED_CERT}"
+      LDAP_USER_SEARCH_BASE_DN: "${LDAP_USER_SEARCH_BASE_DN}"
+      LDAP_USER_SEARCH_FILTER: "${LDAP_USER_SEARCH_FILTER}"
+      LDAP_GROUP_SEARCH_BASE_DN: "${LDAP_GROUP_SEARCH_BASE_DN}"
+      LDAP_GROUP_SEARCH_FILTER: "${LDAP_GROUP_SEARCH_FILTER}"
+      LDAP_DEFAULT_EMAIL_DOMAIN: "${LDAP_DEFAULT_EMAIL_DOMAIN}"
+      LDAP_DEFAULT_SENTRY_ORGANIZATION: "${LDAP_DEFAULT_SENTRY_ORGANIZATION}"
+      LDAP_SENTRY_ORGANIZATION_ROLE_TYPE: "${LDAP_SENTRY_ORGANIZATION_ROLE_TYPE}"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER}"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER}"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN}"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER}"
+      LDAP_DEBUG: "${LDAP_DEBUG}"
+  - apiVersion: v1
+    kind: ImageStream
+    metadata:
+      annotations:
+        openshift.io/display-name: sentry
+        io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
+      labels:
+        io.sentry.service: sentry
+      name: sentry
+    spec:
+      lookupPolicy:
+        local: true
+      tags:
+        - annotations:
+            io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
+            openshift.io/display-name: sentry
+          from:
+            kind: DockerImage
+            name: sentry:latest
+          importPolicy: {}
+          name: latest
+  - apiVersion: build.openshift.io/v1
+    kind: BuildConfig
+    metadata:
+      annotations:
+        description: "Sentry On-Premise Build"
+        io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
+      name: sentry
+    spec:
+      failedBuildsHistoryLimit: 5
+      nodeSelector: null
+      output:
+        to:
+          kind: ImageStreamTag
+          name: "sentry:latest"
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        contextDir: "/openshift/sentry"
+        git:
+          uri: >-
+            https://github.com/SimonGolms/sentry-onpremise-openshift.git
+        sourceSecret:
+          name: cd-user-token
+        type: Git
+      strategy:
+        dockerStrategy:
+          env:
+            - name: LDAP_BIND_DN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_BIND_DN
+                  name: "sentry-secret"
+            - name: LDAP_BIND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_BIND_PASSWORD
+                  name: "sentry-secret"
+            - name: LDAP_SERVER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SERVER
+                  name: "sentry-secret"
+            - name: LDAP_USER_SEARCH_BASE_DN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_USER_SEARCH_BASE_DN
+                  name: "sentry-secret"
+            - name: LDAP_USER_SEARCH_FILTER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_USER_SEARCH_FILTER
+                  name: "sentry-secret"
+            - name: LDAP_GROUP_SEARCH_BASE_DN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_GROUP_SEARCH_BASE_DN
+                  name: "sentry-secret"
+            - name: LDAP_GROUP_SEARCH_FILTER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_GROUP_SEARCH_FILTER
+                  name: "sentry-secret"
+            - name: LDAP_DEFAULT_EMAIL_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_DEFAULT_EMAIL_DOMAIN
+                  name: "sentry-secret"
+            - name: LDAP_DEFAULT_SENTRY_ORGANIZATION
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_DEFAULT_SENTRY_ORGANIZATION
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
+                  name: "sentry-secret"
+            - name: LDAP_DEBUG
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_DEBUG
+                  name: "sentry-secret"
+            - name: SENTRY_EVENT_RETENTION_DAYS
+              valueFrom:
+                configMapKeyRef:
+                  key: SENTRY_EVENT_RETENTION_DAYS
+                  name: "sentry-config"
+            - name: SENTRY_EMAIL_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_HOST
+                  name: "sentry-secret"
+            - name: SENTRY_EMAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_PASSWORD
+                  name: "sentry-secret"
+            - name: SENTRY_EMAIL_USER
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_USER
+                  name: "sentry-secret"
+            - name: SENTRY_EMAIL_PORT
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_PORT
+                  name: "sentry-secret"
+            - name: SENTRY_EMAIL_USE_TLS
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_EMAIL_USE_TLS
+                  name: "sentry-secret"
+            - name: SENTRY_SERVER_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_SERVER_EMAIL
+                  name: "sentry-secret"
+            - name: SENTRY_MAILGUN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_MAILGUN_API_KEY
+                  name: "sentry-secret"
+            - name: SENTRY_POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_POSTGRES_HOST
+                  name: "sentry-secret"
+            - name: SENTRY_POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_POSTGRES_PORT
+                  name: "sentry-secret"
+            - name: SENTRY_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_DB_NAME
+                  name: "sentry-secret"
+            - name: SENTRY_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_DB_USER
+                  name: "sentry-secret"
+            - name: SENTRY_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: SENTRY_DB_PASSWORD
+                  name: "sentry-secret"
+        type: Docker
+      successfulBuildsHistoryLimit: 5
+      triggers:
+        - type: ConfigChange
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: clickhouse
+      name: clickhouse
+    spec:
+      ports:
+        - name: "8123"
+          port: 8123
+          targetPort: 8123
+        - name: "9000"
+          port: 9000
+          targetPort: 9000
+        - name: "9009"
+          port: 9009
+          targetPort: 9009
+      selector:
+        io.sentry.service: clickhouse
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: cron
+      name: cron
+    spec:
+      ports:
+        - name: "9000"
+          port: 9000
+          targetPort: 9000
+      selector:
+        io.sentry.service: cron
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: kafka
+      name: kafka-service
+    spec:
+      ports:
+        - name: "9092"
+          port: 9092
+      selector:
+        io.sentry.service: kafka
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: memcached
+      name: memcached
+    spec:
+      ports:
+        - name: "11211"
+          port: 11211
+          targetPort: 11211
+      selector:
+        io.sentry.service: memcached
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: post-process-forwarder
+      name: post-process-forwarder
+    spec:
+      ports:
+        - name: "9000"
+          port: 9000
+          targetPort: 9000
+      selector:
+        io.sentry.service: post-process-forwarder
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: postgres
+      name: postgres
+    spec:
+      ports:
+        - name: "5432"
+          port: 5432
+          targetPort: 5432
+      selector:
+        io.sentry.service: postgres
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: redis
+      name: redis
+    spec:
+      ports:
+        - name: "6379"
+          port: 6379
+          targetPort: 6379
+      selector:
+        io.sentry.service: redis
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: smtp
+      name: smtp
+    spec:
+      ports:
+        - name: "25"
+          port: 25
+          targetPort: 25
+      selector:
+        io.sentry.service: smtp
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: snuba-api
+      name: snuba-api
+    spec:
+      ports:
+        - name: "1218"
+          port: 1218
+          targetPort: 1218
+      selector:
+        io.sentry.service: snuba-api
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: snuba-consumer
+      name: snuba-consumer
+    spec:
+      ports:
+        - name: "1218"
+          port: 1218
+          targetPort: 1218
+      selector:
+        io.sentry.service: snuba-consumer
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: snuba-replacer
+      name: snuba-replacer
+    spec:
+      ports:
+        - name: "1218"
+          port: 1218
+          targetPort: 1218
+      selector:
+        io.sentry.service: snuba-replacer
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: symbolicator
+      name: symbolicator
+    spec:
+      ports:
+        - name: "3021"
+          port: 3021
+          targetPort: 3021
+      selector:
+        io.sentry.service: symbolicator
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: web
+      name: web
+    spec:
+      ports:
+        - name: "9000"
+          port: 9000
+          targetPort: 9000
+      selector:
+        io.sentry.service: web
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: worker
+      name: worker
+    spec:
+      ports:
+        - name: "9000"
+          port: 9000
+          targetPort: 9000
+      selector:
+        io.sentry.service: worker
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: zookeeper
+      name: zookeeper
+    spec:
+      ports:
+        - name: "2181"
+          port: 2181
+          targetPort: 2181
+        - name: "2888"
+          port: 2888
+          targetPort: 2888
+        - name: "3888"
+          port: 3888
+          targetPort: 3888
+      selector:
+        io.sentry.service: zookeeper
+    status:
+      loadBalancer: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: clickhouse
+      name: clickhouse
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: clickhouse
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: clickhouse
+        spec:
+          containers:
+            - image: "yandex/clickhouse-server:19.4"
+              name: clickhouse
+              ports:
+                - containerPort: 8123
+                - containerPort: 9000
+                - containerPort: 9009
+              resources: {}
+              volumeMounts:
+                - mountPath: /var/lib/clickhouse
+                  name: sentry-clickhouse
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-clickhouse
+              persistentVolumeClaim:
+                claimName: sentry-clickhouse
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-clickhouse
+      name: sentry-clickhouse
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-data
+      name: sentry-data
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: kafka
+      name: kafka
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: kafka
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: kafka
+        spec:
+          initContainers:
+            - name: init-zookeeper
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup zookeeper; do echo waiting for redis; sleep 2; done;"]
+          containers:
+            - env:
+                - name: CONFLUENT_SUPPORT_METRICS_ENABLE
+                  value: "false"
+                - name: KAFKA_ADVERTISED_LISTENERS
+                  value: PLAINTEXT://kafka-service:9092
+                - name: KAFKA_LOG4J_LOGGERS
+                  value: kafka.cluster=WARN,kafka.controller=WARN,kafka.coordinator=WARN,kafka.log=WARN,kafka.server=WARN,kafka.zookeeper=WARN,state.change.logger=WARN
+                - name: KAFKA_LOG4J_ROOT_LOGLEVEL
+                  value: WARN
+                - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+                  value: "1"
+                - name: KAFKA_TOOLS_LOG4J_LOGLEVEL
+                  value: WARN
+                - name: KAFKA_ZOOKEEPER_CONNECT
+                  value: zookeeper:2181
+              image: "confluentinc/cp-kafka:5.1.2"
+              name: kafka
+              ports:
+                - containerPort: 9092
+              resources: {}
+              volumeMounts:
+                - mountPath: /var/lib/kafka/data
+                  name: sentry-kafka
+                - mountPath: /var/lib/kafka/log
+                  name: sentry-kafka-log
+                - mountPath: /etc/kafka/secrets
+                  name: sentry-secrets
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-kafka
+              persistentVolumeClaim:
+                claimName: sentry-kafka
+            - name: sentry-kafka-log
+              persistentVolumeClaim:
+                claimName: sentry-kafka-log
+            - name: sentry-secrets
+              persistentVolumeClaim:
+                claimName: sentry-secrets
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-kafka
+      name: sentry-kafka
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-kafka-log
+      name: sentry-kafka-log
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-secrets
+      name: sentry-secrets
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: memcached
+      name: memcached
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: memcached
+      strategy:
+        resources: {}
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: memcached
+        spec:
+          containers:
+            - image: "memcached:1.5-alpine"
+              name: memcached
+              ports:
+                - containerPort: 11211
+              resources: {}
+          restartPolicy: Always
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: post-process-forwarder
+      name: post-process-forwarder
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: post-process-forwarder
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: post-process-forwarder
+        spec:
+          initContainers:
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-postgres
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
+            - name: init-memcached
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup memcached; do echo waiting for memcached; sleep 2; done;"]
+            - name: init-smtp
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup smtp; do echo waiting for smtp; sleep 2; done;"]
+            - name: init-snuba-api
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-api; do echo waiting for snuba-api; sleep 2; done;"]
+            - name: init-snuba-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-consumer; do echo waiting for snuba-consumer; sleep 2; done;"]
+            - name: init-snuba-replacer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-replacer; do echo waiting for snuba-replacer; sleep 2; done;"]
+            - name: init-symbolicator
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+          containers:
+            - args:
+                - run
+                - post-process-forwarder
+                - --commit-batch-size
+                - "1"
+              env:
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+              image: " "
+              name: post-process-forwarder
+              ports:
+                - containerPort: 9000
+              resources: {}
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-data
+          restartPolicy: Always
+          volumes:
+            - name: sentry-data
+              persistentVolumeClaim:
+                claimName: sentry-data
+      test: false
+      triggers:
+        - type: ConfigChange
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - post-process-forwarder
+            from:
+              kind: ImageStreamTag
+              name: "sentry:latest"
+          type: ImageChange
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: postgres
+      name: postgres
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: postgres
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: postgres
+        spec:
+          containers:
+            - image: "postgres:9.6"
+              name: postgres
+              ports:
+                - containerPort: 5432
+              resources: {}
+              volumeMounts:
+                - mountPath: /var/lib/postgresql/data
+                  name: sentry-postgres
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-postgres
+              persistentVolumeClaim:
+                claimName: sentry-postgres
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-postgres
+      name: sentry-postgres
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: redis
+      name: redis
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: redis
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: redis
+        spec:
+          containers:
+            - image: "redis:5.0-alpine"
+              name: redis
+              ports:
+                - containerPort: 6379
+              resources: {}
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-redis
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          restartPolicy: Always
+          volumes:
+            - name: sentry-redis
+              persistentVolumeClaim:
+                claimName: sentry-redis
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-redis
+      name: sentry-redis
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: batch/v1beta1
+    kind: CronJob
+    metadata:
+      name: sentry-cleanup
+      labels:
+        component: sentry
+    spec:
+      schedule: "0 0 * * *"
+      concurrencyPolicy: Allow
+      suspend: false
+      successfulJobsHistoryLimit: 3
+      failedJobsHistoryLimit: 1
+      jobTemplate:
+        spec:
+          template:
+            metadata:
+              labels:
+                component: sentry
+            spec:
+              containers:
+                - name: sentry-cleanup
+                  env:
+                    - name: SNUBA
+                      value: http://snuba-api:1218
+                  envFrom:
+                    - configMapRef:
+                        name: "sentry-config"
+                    - secretRef:
+                        name: "sentry-secret"
+                  image: ${SENTRY_IMAGE}
+                  command: ["sh", "-c", "sentry cleanup --days ${SENTRY_EVENT_RETENTION_DAYS}"]
+                  volumeMounts:
+                    - mountPath: /data
+                      name: sentry-data
+              restartPolicy: Never
+              volumes:
+                - name: sentry-data
+                  persistentVolumeClaim:
+                    claimName: sentry-data
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: smtp
+      name: smtp
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: smtp
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: smtp
+        spec:
+          containers:
+            - image: "tianon/exim4"
+              name: smtp
+              ports:
+                - containerPort: 25
+              resources: {}
+              volumeMounts:
+                - mountPath: /var/spool/exim4
+                  name: sentry-smtp
+                - mountPath: /var/log/exim4
+                  name: sentry-smtp-log
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          restartPolicy: Always
+          volumes:
+            - name: sentry-smtp
+              persistentVolumeClaim:
+                claimName: sentry-smtp
+            - name: sentry-smtp-log
+              persistentVolumeClaim:
+                claimName: sentry-smtp-log
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-smtp
+      name: sentry-smtp
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-smtp-log
+      name: sentry-smtp-log
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: snuba-api
+      name: snuba-api
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: snuba-api
+      strategy:
+        resources: {}
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: snuba-api
+        spec:
+          initContainers:
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-clickhouse
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+          containers:
+            - env:
+                - name: CLICKHOUSE_HOST
+                  value: clickhouse
+                - name: CLICKHOUSE_PORT
+                  value: "9000"
+                - name: DEFAULT_BROKERS
+                  value: kafka-service:9092
+                - name: REDIS_HOST
+                  value: redis
+                - name: REDIS_PORT
+                  value: "6379"
+                - name: SNUBA_SETTINGS
+                  value: docker
+                - name: UWSGI_DIE_ON_TERM
+                  value: "true"
+                - name: UWSGI_DISABLE_LOGGING
+                  value: "true"
+                - name: UWSGI_DISABLE_WRITE_EXCEPTION
+                  value: "true"
+                - name: UWSGI_ENABLE_THREADS
+                  value: "true"
+                - name: UWSGI_IGNORE_SIGPIPE
+                  value: "true"
+                - name: UWSGI_IGNORE_WRITE_ERRORS
+                  value: "true"
+                - name: UWSGI_MAX_REQUESTS
+                  value: "10000"
+                - name: UWSGI_NEED_APP
+                  value: "true"
+              image: "getsentry/snuba:latest"
+              name: snuba-api
+              ports:
+                - containerPort: 1218
+              resources: {}
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          restartPolicy: Always
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: batch/v1beta1
+    kind: CronJob
+    metadata:
+      name: snuba-cleanup
+      labels:
+        component: snuba
+    spec:
+      schedule: "*/5 * * * *"
+      concurrencyPolicy: Allow
+      suspend: false
+      successfulJobsHistoryLimit: 3
+      failedJobsHistoryLimit: 1
+      jobTemplate:
+        spec:
+          template:
+            metadata:
+              labels:
+                component: snuba
+            spec:
+              initContainers:
+                - name: init-redis
+                  image: "busybox:1.28.4"
+                  command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+                - name: init-clickhouse
+                  image: "busybox:1.28.4"
+                  command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
+                - name: init-kafka
+                  image: "busybox:1.28.4"
+                  command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+              containers:
+                - name: snuba-cleanup
+                  image: "getsentry/snuba:latest"
+                  command: ["sh", "-c", "snuba cleanup --dry-run False"]
+                  env:
+                    - name: CLICKHOUSE_HOST
+                      value: clickhouse
+                    - name: CLICKHOUSE_PORT
+                      value: "9000"
+                    - name: DEFAULT_BROKERS
+                      value: kafka-service:9092
+                    - name: REDIS_HOST
+                      value: redis
+                    - name: REDIS_PORT
+                      value: "6379"
+                    - name: SNUBA_SETTINGS
+                      value: docker
+                    - name: UWSGI_DIE_ON_TERM
+                      value: "true"
+                    - name: UWSGI_DISABLE_LOGGING
+                      value: "true"
+                    - name: UWSGI_DISABLE_WRITE_EXCEPTION
+                      value: "true"
+                    - name: UWSGI_ENABLE_THREADS
+                      value: "true"
+                    - name: UWSGI_IGNORE_SIGPIPE
+                      value: "true"
+                    - name: UWSGI_IGNORE_WRITE_ERRORS
+                      value: "true"
+                    - name: UWSGI_MAX_REQUESTS
+                      value: "10000"
+                    - name: UWSGI_NEED_APP
+                      value: "true"
+              restartPolicy: Never
+              serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: snuba-consumer
+      name: snuba-consumer
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: snuba-consumer
+      strategy:
+        resources: {}
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: snuba-consumer
+        spec:
+          initContainers:
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-clickhouse
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+          containers:
+            - args:
+                - consumer
+                - --auto-offset-reset=latest
+                - --max-batch-time-ms
+                - "750"
+              env:
+                - name: CLICKHOUSE_HOST
+                  value: clickhouse
+                - name: CLICKHOUSE_PORT
+                  value: "9000"
+                - name: DEFAULT_BROKERS
+                  value: kafka-service:9092
+                - name: REDIS_HOST
+                  value: redis
+                - name: REDIS_PORT
+                  value: "6379"
+                - name: SNUBA_SETTINGS
+                  value: docker
+                - name: UWSGI_DIE_ON_TERM
+                  value: "true"
+                - name: UWSGI_DISABLE_LOGGING
+                  value: "true"
+                - name: UWSGI_DISABLE_WRITE_EXCEPTION
+                  value: "true"
+                - name: UWSGI_ENABLE_THREADS
+                  value: "true"
+                - name: UWSGI_IGNORE_SIGPIPE
+                  value: "true"
+                - name: UWSGI_IGNORE_WRITE_ERRORS
+                  value: "true"
+                - name: UWSGI_MAX_REQUESTS
+                  value: "10000"
+                - name: UWSGI_NEED_APP
+                  value: "true"
+              image: "getsentry/snuba:latest"
+              name: snuba-consumer
+              ports:
+                - containerPort: 1218
+              resources: {}
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: snuba-replacer
+      name: snuba-replacer
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: snuba-replacer
+      strategy:
+        resources: {}
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: snuba-replacer
+        spec:
+          initContainers:
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-clickhouse
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+          containers:
+            - args:
+                - replacer
+                - --auto-offset-reset=latest
+                - --max-batch-size
+                - "3"
+              env:
+                - name: CLICKHOUSE_HOST
+                  value: clickhouse
+                - name: CLICKHOUSE_PORT
+                  value: "9000"
+                - name: DEFAULT_BROKERS
+                  value: kafka-service:9092
+                - name: REDIS_HOST
+                  value: redis
+                - name: REDIS_PORT
+                  value: "6379"
+                - name: SNUBA_SETTINGS
+                  value: docker
+                - name: UWSGI_DIE_ON_TERM
+                  value: "true"
+                - name: UWSGI_DISABLE_LOGGING
+                  value: "true"
+                - name: UWSGI_DISABLE_WRITE_EXCEPTION
+                  value: "true"
+                - name: UWSGI_ENABLE_THREADS
+                  value: "true"
+                - name: UWSGI_IGNORE_SIGPIPE
+                  value: "true"
+                - name: UWSGI_IGNORE_WRITE_ERRORS
+                  value: "true"
+                - name: UWSGI_MAX_REQUESTS
+                  value: "10000"
+                - name: UWSGI_NEED_APP
+                  value: "true"
+              image: "getsentry/snuba:latest"
+              name: snuba-replacer
+              ports:
+                - containerPort: 1218
+              resources: {}
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: symbolicator
+      name: symbolicator
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: symbolicator
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: symbolicator
+        spec:
+          containers:
+            - args:
+                - run
+              image: "getsentry/symbolicator:latest"
+              name: symbolicator
+              ports:
+                - containerPort: 3021
+              resources: {}
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-symbolicator
+          restartPolicy: Always
+          volumes:
+            - name: sentry-symbolicator
+              persistentVolumeClaim:
+                claimName: sentry-symbolicator
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: batch/v1beta1
+    kind: CronJob
+    metadata:
+      name: symbolicator-cleanup
+      labels:
+        component: symbolicator
+    spec:
+      schedule: "55 23 * * *"
+      concurrencyPolicy: Allow
+      suspend: false
+      successfulJobsHistoryLimit: 3
+      failedJobsHistoryLimit: 1
+      jobTemplate:
+        spec:
+          template:
+            metadata:
+              labels:
+                component: symbolicator
+            spec:
+              containers:
+                - name: symbolicator-cleanup
+                  image: "getsentry/symbolicator:latest"
+                  command: ["sh", "-c", "symbolicator cleanup"]
+                  volumeMounts:
+                    - mountPath: /data
+                      name: sentry-symbolicator
+              restartPolicy: Never
+              volumes:
+                - name: sentry-symbolicator
+                  persistentVolumeClaim:
+                    claimName: sentry-symbolicator
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: "true"
+      name: sentry-createuser
+      labels:
+        component: sentry
+    spec:
+      selector: {}
+      template:
+        metadata:
+          name: sentry-createuser
+          labels:
+            component: sentry
+        spec:
+          initContainers:
+            - name: init-web
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup web; do echo waiting for web; sleep 2; done;"]
+          containers:
+            - name: web
+              env:
+                - name: ADMIN_USERNAME
+                  value: "${ADMIN_USERNAME}"
+                - name: ADMIN_PASSWORD
+                  value: "${ADMIN_PASSWORD}"
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+              image: "sentry:latest"
+              command: ["sh", "-c", "sentry createuser --no-input --email ${ADMIN_USERNAME} --password ${ADMIN_PASSWORD} --superuser"]
+          restartPolicy: OnFailure
+          volumes:
+            - name: sentry-data
+              persistentVolumeClaim:
+                claimName: sentry-data
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-symbolicator
+      name: sentry-symbolicator
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: web
+      name: web
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: web
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 1000
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: web
+        spec:
+          containers:
+            - env:
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+              image: " "
+              name: web
+              ports:
+                - containerPort: 9000
+              resources: {}
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-data
+          initContainers:
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-postgres
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
+            - name: init-memcached
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup memcached; do echo waiting for memcached; sleep 2; done;"]
+            - name: init-smtp
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup smtp; do echo waiting for smtp; sleep 2; done;"]
+            - name: init-snuba-api
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-api; do echo waiting for snuba-api; sleep 2; done;"]
+            - name: init-snuba-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-consumer; do echo waiting for snuba-consumer; sleep 2; done;"]
+            - name: init-snuba-replacer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-replacer; do echo waiting for snuba-replacer; sleep 2; done;"]
+            - name: init-snuba-bootstrapping
+              env:
+                - name: CLICKHOUSE_HOST
+                  value: clickhouse
+                - name: CLICKHOUSE_PORT
+                  value: "9000"
+                - name: DEFAULT_BROKERS
+                  value: kafka-service:9092
+                - name: REDIS_HOST
+                  value: redis
+                - name: REDIS_PORT
+                  value: "6379"
+                - name: SNUBA_SETTINGS
+                  value: docker
+                - name: UWSGI_DIE_ON_TERM
+                  value: "true"
+                - name: UWSGI_DISABLE_LOGGING
+                  value: "true"
+                - name: UWSGI_DISABLE_WRITE_EXCEPTION
+                  value: "true"
+                - name: UWSGI_ENABLE_THREADS
+                  value: "true"
+                - name: UWSGI_IGNORE_SIGPIPE
+                  value: "true"
+                - name: UWSGI_IGNORE_WRITE_ERRORS
+                  value: "true"
+                - name: UWSGI_MAX_REQUESTS
+                  value: "10000"
+                - name: UWSGI_NEED_APP
+                  value: "true"
+              image: "getsentry/snuba:latest"
+              command:
+                [
+                  "sh",
+                  "-c",
+                  "snuba bootstrap --no-kafka --force --log-level debug || snuba bootstrap --force --log-level debug || snuba migrate --log-level debug || echo true",
+                ]
+            - name: init-symbolicator
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+            - name: init-clickhouse
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
+            - name: init-clickhouse-client
+              image: "yandex/clickhouse-server:19.4"
+              command: ["sh", "-c", 'clickhouse client -h clickhouse --query="SHOW TABLES;" | grep sentry_local && exit 0']
+            - name: init-web-upgrade
+              env:
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+              image: "sentry:latest"
+              command: ["sh", "-c", "sentry upgrade --noinput"]
+          restartPolicy: Always
+          volumes:
+            - name: sentry-data
+              persistentVolumeClaim:
+                claimName: sentry-data
+      test: false
+      triggers:
+        - type: ConfigChange
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - web
+            from:
+              kind: ImageStreamTag
+              name: "sentry:latest"
+          type: ImageChange
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: worker
+      name: worker
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: worker
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: worker
+        spec:
+          initContainers:
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-postgres
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
+            - name: init-memcached
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup memcached; do echo waiting for memcached; sleep 2; done;"]
+            - name: init-smtp
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup smtp; do echo waiting for smtp; sleep 2; done;"]
+            - name: init-snuba-api
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-api; do echo waiting for snuba-api; sleep 2; done;"]
+            - name: init-snuba-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-consumer; do echo waiting for snuba-consumer; sleep 2; done;"]
+            - name: init-snuba-replacer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-replacer; do echo waiting for snuba-replacer; sleep 2; done;"]
+            - name: init-symbolicator
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+          containers:
+            - args:
+                - run
+                - worker
+              env:
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+              image: " "
+              name: worker
+              ports:
+                - containerPort: 9000
+              resources: {}
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-data
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-data
+              persistentVolumeClaim:
+                claimName: sentry-data
+      test: false
+      triggers:
+        - type: ConfigChange
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - worker
+            from:
+              kind: ImageStreamTag
+              name: "sentry:latest"
+          type: ImageChange
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: zookeeper
+      name: zookeeper
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: zookeeper
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: zookeeper
+        spec:
+          containers:
+            - env:
+                - name: CONFLUENT_SUPPORT_METRICS_ENABLE
+                  value: "false"
+                - name: ZOOKEEPER_CLIENT_PORT
+                  value: "2181"
+                - name: ZOOKEEPER_LOG4J_ROOT_LOGLEVEL
+                  value: WARN
+                - name: ZOOKEEPER_TOOLS_LOG4J_LOGLEVEL
+                  value: WARN
+              image: "confluentinc/cp-zookeeper:5.1.2"
+              name: zookeeper
+              ports:
+                - containerPort: 2181
+                - containerPort: 2888
+                - containerPort: 3888
+              resources: {}
+              volumeMounts:
+                - mountPath: /var/lib/zookeeper/data
+                  name: sentry-zookeeper
+                - mountPath: /var/lib/zookeeper/log
+                  name: sentry-zookeeper-log
+                - mountPath: /etc/zookeeper/secrets
+                  name: sentry-secrets
+          restartPolicy: Always
+          volumes:
+            - name: sentry-zookeeper
+              persistentVolumeClaim:
+                claimName: sentry-zookeeper
+            - name: sentry-zookeeper-log
+              persistentVolumeClaim:
+                claimName: sentry-zookeeper-log
+            - name: sentry-secrets
+              persistentVolumeClaim:
+                claimName: sentry-secrets
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-zookeeper
+      name: sentry-zookeeper
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-zookeeper-log
+      name: sentry-zookeeper-log
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: route.openshift.io/v1
+    kind: Route
+    metadata:
+      name: sentry
+    spec:
+      host: "${SENTRY_HOST}"
+      port:
+        targetPort: "9000"
+      tls:
+        insecureEdgeTerminationPolicy: Redirect
+        termination: edge
+      to:
+        kind: Service
+        name: web
+        weight: 100
+      wildcardPolicy: None
+message: >-
+  Once the 'web' container is successfully started, sentry is available under the following url:
+
+  ${SENTRY_HOST}
+
+
+  Log in with the admin account to complete the configuration and continue setting up sentry.
+
+  Account: ${ADMIN_USERNAME}
+
+  Password: ${ADMIN_PASSWORD}

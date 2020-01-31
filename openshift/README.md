@@ -2,12 +2,6 @@
 
 ## Getting Started
 
-### Sentry Docker Image
-
-Import `./sentry/sentry-template.yaml` YAML file into your OpenShift project or build and provide your own sentry image.
-
-More Information: [./sentry/README.md](./sentry/README.md)
-
 ### Service Account with anyuid
 
 The following container (_name: image_) needs root permission to start and run successfully
@@ -45,11 +39,34 @@ More Information: https://blog.openshift.com/understanding-service-accounts-sccs
 
 ## Provisioning
 
-Import `sentry-onpremise-template.yaml` into your OpenShift Project and process the template.
+### Quickstart
 
+Import `sentry-onpremise-quickstart-template.yaml` into your OpenShift Project and process the template.
+
+### Customized
+
+#### Sentry Docker Image
+
+Import `./sentry/sentry-template.yaml` YAML file into your OpenShift project or build and provide your own sentry image.
+More Information: [./sentry/README.md](./sentry/README.md)
+
+#### Sentry On-Premise
+
+Import `sentry-onpremise-template.yaml` into your OpenShift Project and process the template.
 The template will create some `DeploymentConfigs` and some `CronJobs` and a `Job`.
 
 ## Deprovisioning
+
+### Quickstart
+
+```bash
+$ oc delete all --selector app=<name>
+oc delete pvc --selector app=<name>
+oc delete configmap sentry-config
+oc delete secret sentry-secret
+```
+
+### Customized
 
 ```bash
 oc delete all --selector app=<name>
