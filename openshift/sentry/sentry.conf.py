@@ -132,7 +132,7 @@ CACHES = {
 SENTRY_CACHE = "sentry.cache.redis.RedisCache"
 
 DEFAULT_KAFKA_OPTIONS = {
-    "bootstrap.servers": "kafka:9092",
+    "bootstrap.servers": "kafka-service:9092",
     "message.max.bytes": 50000000,
     "socket.timeout.ms": 1000,
 }
@@ -347,7 +347,7 @@ if sentry_ldap:
         AUTH_LDAP_GLOBAL_OPTIONS = {
             ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_NEVER
         }
-        
+
     AUTH_LDAP_USER_SEARCH = LDAPSearch(
         str(env('LDAP_USER_SEARCH_BASE_DN')),
         ldap.SCOPE_SUBTREE,

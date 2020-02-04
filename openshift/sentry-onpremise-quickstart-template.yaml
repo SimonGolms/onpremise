@@ -865,7 +865,7 @@ objects:
               command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
             - name: init-kafka
               image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
           containers:
             - args:
                 - run
@@ -1154,7 +1154,7 @@ objects:
               command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
             - name: init-kafka
               image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
           containers:
             - env:
                 - name: CLICKHOUSE_HOST
@@ -1224,7 +1224,7 @@ objects:
                   command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
                 - name: init-kafka
                   image: "busybox:1.28.4"
-                  command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+                  command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
               containers:
                 - name: snuba-cleanup
                   image: "getsentry/snuba:latest"
@@ -1289,7 +1289,7 @@ objects:
               command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
             - name: init-kafka
               image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
           containers:
             - args:
                 - consumer
@@ -1365,7 +1365,7 @@ objects:
               command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
             - name: init-kafka
               image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
           containers:
             - args:
                 - replacer
@@ -1648,7 +1648,7 @@ objects:
               command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
             - name: init-kafka
               image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
             - name: init-clickhouse
               image: "busybox:1.28.4"
               command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
@@ -1731,7 +1731,7 @@ objects:
               command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
             - name: init-kafka
               image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka; sleep 2; done;"]
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
           containers:
             - args:
                 - run
