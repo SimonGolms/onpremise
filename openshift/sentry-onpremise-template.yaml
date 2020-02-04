@@ -759,7 +759,7 @@ objects:
                         name: "${SENTRY_IMAGE_CONFIGMAP}"
                     - secretRef:
                         name: "${SENTRY_IMAGE_SECRETS}"
-                  image: ${SENTRY_IMAGE}
+                  image: "${SENTRY_IMAGE}"
                   command: ["sh", "-c", "sentry cleanup --days ${SENTRY_EVENT_RETENTION_DAYS}"]
                   volumeMounts:
                     - mountPath: /data
