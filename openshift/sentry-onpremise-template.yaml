@@ -1383,7 +1383,19 @@ objects:
                     name: "${SENTRY_IMAGE_SECRETS}"
               image: "${SENTRY_IMAGE}"
               command: ["sh", "-c", "sentry upgrade --noinput"]
+            - name: init-file-storage-migrate
+              env:
+              - name: SNUBA
+                value: http://snuba-api:1218
+              envFrom: 
+              - configMapRef:
+                  name: "${SENTRY_IMAGE_CONFIGMAP}"
+              - secretRef:
+                  name: "${SENTRY_IMAGE_SECRETS}"
+              image: "${SENTRY_IMAGE}"
+              command: ["sh", "-c", "mkdir -p /tmp/files; mv /data/* /tmp/files/; mv /tmp/files /data/files; chown -R sentry:sentry /data"]
           restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
           volumes:
             - name: sentry-data
               persistentVolumeClaim:

@@ -16,6 +16,7 @@ The following container (_name: image_) needs root permission to start and run s
   - snuba-api: `getsentry/snuba:latest`
   - snuba-consumer: `getsentry/snuba:latest`
   - snuba-replacer: `getsentry/snuba:latest`
+  - web: `${SENTRY_IMAGE}`
   - worker: `${SENTRY_IMAGE}`
 
 - CronJob
