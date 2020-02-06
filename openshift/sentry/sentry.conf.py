@@ -386,10 +386,10 @@ if sentry_ldap:
         'LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN') or env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER') or False
     if group_role_mapping:
         AUTH_LDAP_SENTRY_GROUP_ROLE_MAPPING = {
-            'owner': str(env('LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER')),
-            'manager': str(env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER')),
-            'admin': str(env('LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN')),
-            'member': str(env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER')),
+            'owner': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER'),
+            'manager': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER'),
+            'admin': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN'),
+            'member': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER'),
         }
 
     AUTH_LDAP_SENTRY_ORGANIZATION_GLOBAL_ACCESS = True
