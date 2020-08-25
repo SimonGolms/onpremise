@@ -1,4 +1,4 @@
-# Sentry 10 On-Premise Docker Image
+# Sentry Nightly On-Premise Docker Image
 
 This is a customized docker image including 3rd Party Plugins that can be used by OpenShift.
 

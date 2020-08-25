@@ -3,6 +3,36 @@
 
 from sentry.conf.server import *  # NOQA
 
+
+# Generously adapted from pynetlinux: https://git.io/JJmga
+def get_internal_network():
+    import ctypes
+    import fcntl
+    import math
+    import socket
+    import struct
+
+    iface = "eth0"
+    sockfd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    ifreq = struct.pack("16sH14s", iface, socket.AF_INET, b"\x00" * 14)
+
+    try:
+        ip = struct.unpack(
+            "!I", struct.unpack("16sH2x4s8x", fcntl.ioctl(sockfd, 0x8915, ifreq))[2]
+        )[0]
+        netmask = socket.ntohl(
+            struct.unpack("16sH2xI8x", fcntl.ioctl(sockfd, 0x891B, ifreq))[2]
+        )
+    except IOError:
+        return ()
+    base = socket.inet_ntoa(struct.pack("!I", ip & netmask))
+    netmask_bits = 32 - int(round(math.log(ctypes.c_uint32(~netmask).value + 1, 2), 1))
+    return ("{0:s}/{1:d}".format(base, netmask_bits),)
+
+
+INTERNAL_SYSTEM_IPS = get_internal_network()
+
+
 DATABASES = {
     "default": {
         "ENGINE": "sentry.db.postgres",
@@ -29,7 +59,9 @@ SENTRY_USE_BIG_INTS = True
 # and thus various UI optimizations should be enabled.
 SENTRY_SINGLE_ORGANIZATION = True
 
-SENTRY_OPTIONS["system.event-retention-days"] = int(env('SENTRY_EVENT_RETENTION_DAYS', '90'))
+SENTRY_OPTIONS["system.event-retention-days"] = int(
+    env("SENTRY_EVENT_RETENTION_DAYS", "90")
+)
 
 #########
 # Redis #
@@ -155,11 +187,31 @@ SENTRY_WEB_PORT = 9000
 SENTRY_WEB_OPTIONS = {
     "http": "%s:%s" % (SENTRY_WEB_HOST, SENTRY_WEB_PORT),
     "protocol": "uwsgi",
-    # This is needed to prevent https://git.io/fj7Lw
+    # This is needed in order to prevent https://git.io/fj7Lw
     "uwsgi-socket": None,
-    "http-keepalive": True,
+    "so-keepalive": True,
+    # Keep this between 15s-75s as that's what Relay supports
+    "http-keepalive": 15,
+    "http-chunked-input": True,
+    # the number of web workers
+    "workers": 3,
+    "threads": 4,
     "memory-report": False,
-    # 'workers': 3,  # the number of web workers
+    # Some stuff so uwsgi will cycle workers sensibly
+    "max-requests": 100000,
+    "max-requests-delta": 500,
+    "max-worker-lifetime": 86400,
+    # Duplicate options from sentry default just so we don't get
+    # bit by sentry changing a default value that we depend on.
+    "thunder-lock": True,
+    "log-x-forwarded-for": False,
+    "buffer-size": 32768,
+    "limit-post": 209715200,
+    "disable-logging": True,
+    "reload-on-rss": 600,
+    "ignore-sigpipe": True,
+    "ignore-write-errors": True,
+    "disable-write-exception": True,
 }
 
 ###########
@@ -191,14 +243,10 @@ SENTRY_FEATURES.update(
             "organizations:integrations-issue-basic",
             "organizations:integrations-issue-sync",
             "organizations:invite-members",
-            "organizations:new-issue-ui",
-            "organizations:repos",
-            "organizations:require-2fa",
-            "organizations:sentry10",
             "organizations:sso-basic",
             "organizations:sso-rippling",
             "organizations:sso-saml2",
-            "organizations:suggested-commits",
+            "organizations:performance-view",
             "projects:custom-inbound-filters",
             "projects:data-forwarding",
             "projects:discard-groups",
@@ -213,7 +261,7 @@ SENTRY_FEATURES.update(
 # GitHub Integration #
 ######################
 
-GITHUB_EXTENDED_PERMISSIONS = ['repo']
+GITHUB_EXTENDED_PERMISSIONS = ["repo"]
 
 #########################
 # Bitbucket Integration #

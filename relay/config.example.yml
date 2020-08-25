@@ -1,0 +1,12 @@
+relay:
+  upstream: "http://web:9000/"
+  host: 0.0.0.0
+  port: 3000
+logging:
+ level: WARN
+processing:
+  enabled: true
+  kafka_config:
+    - {name: "bootstrap.servers", value: "kafka:9092"}
+    - {name: "message.max.bytes", value: 50000000} #50MB or bust
+  redis: redis://redis:6379
