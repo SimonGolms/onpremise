@@ -1786,7 +1786,7 @@ objects:
               image: "curlimages/curl:latest"
               args:
                 - -L 
-                - https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/dev/openshift/symbolicator/config.yml 
+                - https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/symbolicator/config.yml 
                 - -o 
                 - /etc/symbolicator/config.yml
               volumeMounts:
@@ -1839,7 +1839,7 @@ objects:
               image: "curlimages/curl:latest"
               args:
                 - -L 
-                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/dev/openshift/sentry/{config.yml,sentry.conf.py,requirements.txt}"
+                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/sentry/{config.yml,sentry.conf.py,requirements.txt}"
                 - -o 
                 - "/etc/sentry/#1"
               volumeMounts:
@@ -1892,7 +1892,7 @@ objects:
               image: "curlimages/curl:latest"
               args:
                 - -L 
-                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/dev/openshift/nginx/nginx.conf"
+                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/nginx/nginx.conf"
                 - -o 
                 - "/etc/nginx/nginx.conf"
               volumeMounts:
@@ -1945,7 +1945,7 @@ objects:
               image: "curlimages/curl:latest"
               args:
                 - -L 
-                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/dev/openshift/relay/config.yml"
+                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/relay/config.yml"
                 - -o 
                 - "/work/.relay/config.yml"
               volumeMounts:
