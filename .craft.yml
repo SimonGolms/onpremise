@@ -1,0 +1,15 @@
+minVersion: "0.10.0"
+github:
+  owner: getsentry
+  repo: onpremise
+releaseBranchPrefix: releases
+changelogPolicy: none
+artifactProvider:
+  name: none
+statusProvider:
+  name: github
+  config:
+    contexts:
+      - 'Travis CI - Branch'
+targets:
+  - name: github

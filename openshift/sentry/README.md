@@ -1,4 +1,4 @@
-# Sentry 10 On-Premise Docker Image
+# Sentry Nightly On-Premise Docker Image
 
 This is a customized docker image including 3rd Party Plugins that can be used by OpenShift.
 
@@ -83,8 +83,8 @@ More Information: https://github.com/Neko-Design/sentry-msteams
 ## Deprovisioning
 
 ```bash
-oc delete buildconfig --selector app=<name>
-oc delete imagestream --selector app=<name>
-oc delete configmap <configmap-
+oc delete all -l app=<name>
+oc delete configmap <configmap-name>
 oc delete secret <secret-name>
+oc delete pvc -l app=<name>
 ```
