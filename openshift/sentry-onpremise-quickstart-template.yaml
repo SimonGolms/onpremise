@@ -2186,6 +2186,8 @@ objects:
               image: "sentry:latest"
               command: ["sh", "-c", "mkdir -p /tmp/files; mv /data/* /tmp/files/; mv /tmp/files /data/files; chown -R sentry:sentry /data"]
               volumeMounts:
+                - mountPath: /data
+                  name: sentry-data
                 - mountPath: /etc/sentry
                   name: sentry-conf
           restartPolicy: Always
@@ -2324,6 +2326,9 @@ objects:
             - name: init-redis
               image: "busybox:1.28.4"
               command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-web
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup web; do echo waiting for web; sleep 2; done;"]
           restartPolicy: Always
           serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
           volumes:
