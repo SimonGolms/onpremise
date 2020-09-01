@@ -175,23 +175,21 @@ objects:
     kind: ImageStream
     metadata:
       annotations:
-        openshift.io/display-name: sentry
+        openshift.io/display-name: internal-sentry
         io.sentry.plugins: "sentry-msteams"
-        # io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
       labels:
         io.sentry.service: sentry
-      name: sentry
+      name: internal-sentry
     spec:
       lookupPolicy:
         local: true
       tags:
         - annotations:
             io.sentry.plugins: "sentry-msteams"
-            # io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
-            openshift.io/display-name: sentry
+            openshift.io/display-name: internal-sentry
           from:
             kind: DockerImage
-            name: sentry:latest
+            name: internal-sentry:latest
           importPolicy: {}
           name: latest
   - apiVersion: build.openshift.io/v1
@@ -200,15 +198,14 @@ objects:
       annotations:
         description: "Sentry On-Premise Build"
         io.sentry.plugins: "sentry-msteams"
-        # io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
-      name: sentry
+      name: internal-sentry
     spec:
       failedBuildsHistoryLimit: 5
       nodeSelector: null
       output:
         to:
           kind: ImageStreamTag
-          name: "sentry:latest"
+          name: "internal-sentry:latest"
       postCommit: {}
       resources: {}
       runPolicy: Serial
@@ -1222,7 +1219,7 @@ objects:
                         name: "sentry-config"
                     - secretRef:
                         name: "sentry-secret"
-                  image: "sentry:latest"
+                  image: "internal-sentry"
                   command: ["sh", "-c", "sentry cleanup --days ${SENTRY_EVENT_RETENTION_DAYS}"]
                   volumeMounts:
                     - mountPath: /data
@@ -2146,7 +2143,7 @@ objects:
                     name: "sentry-config"
                 - secretRef:
                     name: "sentry-secret"
-              image: "sentry:latest"
+              image: "internal-sentry"
               args: ["sentry upgrade --noinput"]
               volumeMounts:
                 - mountPath: /data
@@ -2183,7 +2180,7 @@ objects:
                   name: sentry-config
               - secretRef:
                   name: sentry-secret
-              image: "sentry:latest"
+              image: "internal-sentry"
               command: ["sh", "-c", "mkdir -p /tmp/files; mv /data/* /tmp/files/; mv /tmp/files /data/files; chown -R sentry:sentry /data"]
               volumeMounts:
                 - mountPath: /data
@@ -2208,7 +2205,7 @@ objects:
               - web
             from:
               kind: ImageStreamTag
-              name: "sentry:latest"
+              name: "internal-sentry:latest"
           type: ImageChange
     status: {}
   - apiVersion: v1
