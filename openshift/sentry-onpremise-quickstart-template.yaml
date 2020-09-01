@@ -1061,7 +1061,7 @@ objects:
               - post-process-forwarder
             from:
               kind: ImageStreamTag
-              name: "sentry:latest"
+              name: "internal-sentry:latest"
           type: ImageChange
     status: {}
   - apiVersion: v1
@@ -1170,7 +1170,7 @@ objects:
               - worker
             from:
               kind: ImageStreamTag
-              name: "sentry:latest"
+              name: "internal-sentry:latest"
           type: ImageChange
     status: {}
   - apiVersion: v1
@@ -1280,7 +1280,7 @@ objects:
               - ingest-consumer
             from:
               kind: ImageStreamTag
-              name: "sentry:latest"
+              name: "internal-sentry:latest"
           type: ImageChange
     status: {}
   - apiVersion: v1
