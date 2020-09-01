@@ -220,81 +220,6 @@ objects:
       strategy:
         dockerStrategy:
           env:
-            # - name: LDAP_BIND_DN
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_BIND_DN
-            #       name: "sentry-secret"
-            # - name: LDAP_BIND_PASSWORD
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_BIND_PASSWORD
-            #       name: "sentry-secret"
-            # - name: LDAP_SERVER
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_SERVER
-            #       name: "sentry-secret"
-            # - name: LDAP_USER_SEARCH_BASE_DN
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_USER_SEARCH_BASE_DN
-            #       name: "sentry-secret"
-            # - name: LDAP_USER_SEARCH_FILTER
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_USER_SEARCH_FILTER
-            #       name: "sentry-secret"
-            # - name: LDAP_GROUP_SEARCH_BASE_DN
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_GROUP_SEARCH_BASE_DN
-            #       name: "sentry-secret"
-            # - name: LDAP_GROUP_SEARCH_FILTER
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_GROUP_SEARCH_FILTER
-            #       name: "sentry-secret"
-            # - name: LDAP_DEFAULT_EMAIL_DOMAIN
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_DEFAULT_EMAIL_DOMAIN
-            #       name: "sentry-secret"
-            # - name: LDAP_DEFAULT_SENTRY_ORGANIZATION
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_DEFAULT_SENTRY_ORGANIZATION
-            #       name: "sentry-secret"
-            # - name: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
-            #       name: "sentry-secret"
-            # - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
-            #       name: "sentry-secret"
-            # - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
-            #       name: "sentry-secret"
-            # - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
-            #       name: "sentry-secret"
-            # - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
-            #       name: "sentry-secret"
-            # - name: LDAP_DEBUG
-            #   valueFrom:
-            #     secretKeyRef:
-            #       key: LDAP_DEBUG
-            #       name: "sentry-secret"
             - name: SENTRY_EVENT_RETENTION_DAYS
               valueFrom:
                 configMapKeyRef:
@@ -1767,6 +1692,65 @@ objects:
     metadata:
       annotations:
         template.alpha.openshift.io/wait-for-ready: "true"
+      name: sentry-createuser
+      labels:
+        component: sentry
+    spec:
+      selector: {}
+      template:
+        metadata:
+          name: sentry-createuser
+          labels:
+            component: sentry
+        spec:
+          initContainers:
+            - name: init-sentry-config
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until [ -f /etc/sentry/config.yml ] && [ -f /etc/sentry/sentry.conf.py ] && [ -f /etc/sentry/requirements.txt ]; do echo waiting for config; sleep 2; done;"]
+              volumeMounts:
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+            - name: init-web
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup web; do echo waiting for web; sleep 2; done;"]
+          containers:
+            - name: web
+              image: "internal-sentry"
+              args:
+                - createuser
+                - --no-input
+                - --email
+                - ${ADMIN_USERNAME}
+                - --password
+                - ${ADMIN_PASSWORD}
+                - --superuser
+              volumeMounts:
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+              env:
+                - name: ADMIN_USERNAME
+                  value: "${ADMIN_USERNAME}"
+                - name: ADMIN_PASSWORD
+                  value: "${ADMIN_PASSWORD}"
+                - name: SENTRY_CONF
+                  value: '/etc/sentry'
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+          restartPolicy: OnFailure
+          volumes:
+            - name: sentry-conf
+              persistentVolumeClaim:
+                claimName: sentry-conf
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: "true"
       name: sentry-get-symbolicator-config
       labels:
         component: sentry
@@ -2145,25 +2129,6 @@ objects:
                     name: "sentry-secret"
               image: "internal-sentry"
               args: ["sentry upgrade --noinput"]
-              volumeMounts:
-                - mountPath: /data
-                  name: sentry-data
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-            - name: init-web-createuser
-              env:
-                - name: SENTRY_CONF
-                  value: '/etc/sentry'
-                - name: SNUBA
-                  value: http://snuba-api:1218
-              envFrom:
-                - configMapRef:
-                    name: "sentry-config"
-                - secretRef:
-                    name: "sentry-secret"
-              image: "sentry:latest"
-              # Container should not fail if user already exists (error code 3). Therefore this will catch this error code.
-              command: ["sh", "-c", "sentry createuser --no-input --email ${ADMIN_USERNAME} --password ${ADMIN_PASSWORD} --superuser; TMP=\"$?\"; if [ \"$TMP\" = 3 ]; then sh -c \"exit 0\"; else sh -c \"exit $TMP\"; fi;"]
               volumeMounts:
                 - mountPath: /data
                   name: sentry-data
