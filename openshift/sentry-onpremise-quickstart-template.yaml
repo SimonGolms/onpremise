@@ -82,39 +82,6 @@ parameters:
     value: ""
   - name: SENTRY_SMTP_HOSTNAME
     value: ""
-  # # LDAP
-  # - name: LDAP_BIND_DN
-  #   value: ""
-  # - name: LDAP_BIND_PASSWORD
-  #   value: ""
-  # - name: LDAP_SERVER
-  #   value: "ldap://my.ldapserver.com"
-  # - name: LDAP_SELF_SIGNED_CERT
-  #   value: "False"
-  # - name: LDAP_USER_SEARCH_BASE_DN
-  #   value: "DC=domain,DC=com"
-  # - name: LDAP_USER_SEARCH_FILTER
-  #   value: "(&(objectClass=organizationalPerson)(|(sAMAccountName=%(user)s)(mail=%(user)s)))"
-  # - name: LDAP_GROUP_SEARCH_BASE_DN
-  #   value: "DC=domain,DC=com"
-  # - name: LDAP_GROUP_SEARCH_FILTER
-  #   value: "(objectClass=group)"
-  # - name: LDAP_DEFAULT_EMAIL_DOMAIN
-  #   value: "domain.com"
-  # - name: LDAP_DEFAULT_SENTRY_ORGANIZATION
-  #   value: "Sentry"
-  # - name: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
-  #   value: "member"
-  # - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
-  #   value: "sysadmins"
-  # - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
-  #   value: "CN=sentry-manager,DC=domain,DC=com"
-  # - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
-  #   value: "CN=sentry-admin,DC=domain,DC=com"
-  # - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
-  #   value: "CN=sentry-member,DC=domain,DC=com"
-  # - name: LDAP_DEBUG
-  #   value: "True"
 objects:
   - apiVersion: v1
     kind: ConfigMap
@@ -155,22 +122,6 @@ objects:
       SENTRY_SERVER_EMAIL: "${SENTRY_SERVER_EMAIL}"
       SENTRY_MAILGUN_API_KEY: "${SENTRY_MAILGUN_API_KEY}"
       SENTRY_SMTP_HOSTNAME: "${SENTRY_SMTP_HOSTNAME}"
-      # LDAP_BIND_DN: "${LDAP_BIND_DN}"
-      # LDAP_BIND_PASSWORD: "${LDAP_BIND_PASSWORD}"
-      # LDAP_SERVER: "${LDAP_SERVER}"
-      # LDAP_SELF_SIGNED_CERT: "${LDAP_SELF_SIGNED_CERT}"
-      # LDAP_USER_SEARCH_BASE_DN: "${LDAP_USER_SEARCH_BASE_DN}"
-      # LDAP_USER_SEARCH_FILTER: "${LDAP_USER_SEARCH_FILTER}"
-      # LDAP_GROUP_SEARCH_BASE_DN: "${LDAP_GROUP_SEARCH_BASE_DN}"
-      # LDAP_GROUP_SEARCH_FILTER: "${LDAP_GROUP_SEARCH_FILTER}"
-      # LDAP_DEFAULT_EMAIL_DOMAIN: "${LDAP_DEFAULT_EMAIL_DOMAIN}"
-      # LDAP_DEFAULT_SENTRY_ORGANIZATION: "${LDAP_DEFAULT_SENTRY_ORGANIZATION}"
-      # LDAP_SENTRY_ORGANIZATION_ROLE_TYPE: "${LDAP_SENTRY_ORGANIZATION_ROLE_TYPE}"
-      # LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER}"
-      # LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER}"
-      # LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN}"
-      # LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER}"
-      # LDAP_DEBUG: "${LDAP_DEBUG}"
   - apiVersion: v1
     kind: ImageStream
     metadata:
@@ -289,6 +240,20 @@ objects:
       successfulBuildsHistoryLimit: 5
       triggers:
         - type: ConfigChange
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-secrets
+      name: sentry-secrets
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
   - apiVersion: v1
     kind: Service
     metadata:
@@ -663,74 +628,154 @@ objects:
       annotations:
       creationTimestamp: null
       labels:
-        io.sentry.service: clickhouse
-      name: clickhouse
+        io.sentry.service: web
+      name: web
     spec:
       replicas: 1
       selector:
-        io.sentry.service: clickhouse
+        io.sentry.service: web
       strategy:
+        activeDeadlineSeconds: 21600
         resources: {}
-        type: Recreate
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 1000
+          updatePeriodSeconds: 1
+        type: Rolling
       template:
         metadata:
           creationTimestamp: null
           labels:
-            io.sentry.service: clickhouse
+            io.sentry.service: web
         spec:
           containers:
-            - image: "yandex/clickhouse-server:20.3.9.70"
-              name: clickhouse
+            - env:
+                - name: SENTRY_CONF
+                  value: '/etc/sentry'
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+              image: " "
+              name: web
               ports:
-                - containerPort: 8123
                 - containerPort: 9000
-                - containerPort: 9009
               resources: {}
               volumeMounts:
-                - mountPath: /var/lib/clickhouse
-                  name: sentry-clickhouse
-                - mountPath: /var/log/clickhouse-server
-                  name: sentry-clickhouse-log
+                - mountPath: /data
+                  name: sentry-data
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+          initContainers:
+            - name: init-sentry-config
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until [ -f /etc/sentry/config.yml ] && [ -f /etc/sentry/sentry.conf.py ] && [ -f /etc/sentry/requirements.txt ]; do echo waiting for config; sleep 2; done;"]
+              volumeMounts:
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-postgres
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
+            - name: init-memcached
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup memcached; do echo waiting for memcached; sleep 2; done;"]
+            - name: init-smtp
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup smtp; do echo waiting for smtp; sleep 2; done;"]
+            - name: init-snuba-api
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-api; do echo waiting for snuba-api; sleep 2; done;"]
+            - name: init-snuba-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-consumer; do echo waiting for snuba-consumer; sleep 2; done;"]
+            - name: init-snuba-outcomes-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-outcomes-consumer; do echo waiting for snuba-outcomes-consumer; sleep 2; done;"]
+            - name: init-snuba-sessions-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-sessions-consumer; do echo waiting for snuba-sessions-consumer; sleep 2; done;"]
+            - name: init-snuba-transactions-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-transactions-consumer; do echo waiting for snuba-transactions-consumer; sleep 2; done;"]
+            - name: init-snuba-replacer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-replacer; do echo waiting for snuba-replacer; sleep 2; done;"]
+            - name: init-symbolicator
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
+            - name: init-clickhouse
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
+            - name: init-clickhouse-client
+              image: "yandex/clickhouse-server:19.4"
+              command: ["sh", "-c", 'clickhouse client -h clickhouse --query="SHOW TABLES;" | grep sentry_local && exit 0']
+            - name: init-web-upgrade
+              env:
+                - name: SENTRY_CONF
+                  value: '/etc/sentry'
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+              image: "internal-sentry"
+              args: ["sentry upgrade --noinput"]
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-data
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+            - name: init-file-storage-migrate
+              env:
+              - name: SENTRY_CONF
+                value: '/etc/sentry'
+              - name: SNUBA
+                value: http://snuba-api:1218
+              envFrom: 
+              - configMapRef:
+                  name: sentry-config
+              - secretRef:
+                  name: sentry-secret
+              image: "internal-sentry"
+              command: ["sh", "-c", "mkdir -p /tmp/files; mv /data/* /tmp/files/; mv /tmp/files /data/files; chown -R sentry:sentry /data"]
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-data
+                - mountPath: /etc/sentry
+                  name: sentry-conf
           restartPolicy: Always
           serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
           volumes:
-            - name: sentry-clickhouse
+            - name: sentry-data
               persistentVolumeClaim:
-                claimName: sentry-clickhouse
-            - name: sentry-clickhouse-log
+                claimName: sentry-data
+            - name: sentry-conf
               persistentVolumeClaim:
-                claimName: sentry-clickhouse-log
+                claimName: sentry-conf
       test: false
       triggers:
         - type: ConfigChange
-    status: {}
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: sentry-clickhouse
-      name: sentry-clickhouse
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 100Mi
-    status: {}
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: sentry-clickhouse-log
-      name: sentry-clickhouse-log
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 100Mi
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - web
+            from:
+              kind: ImageStreamTag
+              name: "internal-sentry:latest"
+          type: ImageChange
     status: {}
   - apiVersion: v1
     kind: PersistentVolumeClaim
@@ -746,152 +791,169 @@ objects:
         requests:
           storage: 100Mi
     status: {}
-  - apiVersion: v1
-    kind: DeploymentConfig
+  - apiVersion: batch/v1
+    kind: Job
     metadata:
       annotations:
-      creationTimestamp: null
+        template.alpha.openshift.io/wait-for-ready: "true"
+      name: sentry-get-sentry-config
       labels:
-        io.sentry.service: kafka
-      name: kafka
+        component: sentry
     spec:
-      replicas: 1
-      selector:
-        io.sentry.service: kafka
-      strategy:
-        resources: {}
-        type: Recreate
+      selector: {}
       template:
         metadata:
-          creationTimestamp: null
+          name: sentry-get-sentry-config
           labels:
-            io.sentry.service: kafka
+            component: sentry
+        spec:
+          containers:
+            - name: sentry-get-sentry-config
+              image: "curlimages/curl:latest"
+              args:
+                - -L 
+                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/sentry/{config.yml,sentry.conf.py,requirements.txt}"
+                - -o 
+                - "/etc/sentry/#1"
+              volumeMounts:
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+              env:
+                - name: http_proxy
+                  value: "${HTTP_PROXY}"
+                - name: https_proxy
+                  value: "${HTTPS_PROXY}"
+                - name: no_proxy
+                  value: "${NO_PROXY}"
+          restartPolicy: OnFailure
+          volumes:
+            - name: sentry-conf
+              persistentVolumeClaim:
+                claimName: sentry-conf
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-conf
+      name: sentry-conf
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: "true"
+      name: sentry-createuser
+      labels:
+        component: sentry
+    spec:
+      selector: {}
+      template:
+        metadata:
+          name: sentry-createuser
+          labels:
+            component: sentry
         spec:
           initContainers:
-            - name: init-zookeeper
+            - name: init-sentry-config
               image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup zookeeper; do echo waiting for redis; sleep 2; done;"]
-          containers:
-            - env:
-                - name: CONFLUENT_SUPPORT_METRICS_ENABLE
-                  value: "false"
-                - name: KAFKA_ADVERTISED_LISTENERS
-                  value: PLAINTEXT://kafka-service:9092
-                - name: KAFKA_LOG4J_LOGGERS
-                  value: kafka.cluster=WARN,kafka.controller=WARN,kafka.coordinator=WARN,kafka.log=WARN,kafka.server=WARN,kafka.zookeeper=WARN,state.change.logger=WARN
-                - name: KAFKA_LOG4J_ROOT_LOGLEVEL
-                  value: WARN
-                - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
-                  value: "1"
-                - name: KAFKA_MESSAGE_MAX_BYTES
-                  value: '50000000' #50MB or bust
-                - name: KAFKA_MAX_REQUEST_SIZE
-                  value: '50000000' #50MB on requests apparently too
-                - name: KAFKA_TOOLS_LOG4J_LOGLEVEL
-                  value: WARN
-                - name: KAFKA_ZOOKEEPER_CONNECT
-                  value: zookeeper:2181
-              image: "confluentinc/cp-kafka:5.5.0"
-              name: kafka
-              ports:
-                - containerPort: 9092
-              resources: {}
+              command: ["sh", "-c", "until [ -f /etc/sentry/config.yml ] && [ -f /etc/sentry/sentry.conf.py ] && [ -f /etc/sentry/requirements.txt ]; do echo waiting for config; sleep 2; done;"]
               volumeMounts:
-                - mountPath: /var/lib/kafka/data
-                  name: sentry-kafka
-                - mountPath: /var/lib/kafka/log
-                  name: sentry-kafka-log
-                - mountPath: /etc/kafka/secrets
-                  name: sentry-secrets
-          restartPolicy: Always
-          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
-          volumes:
-            - name: sentry-kafka
-              persistentVolumeClaim:
-                claimName: sentry-kafka
-            - name: sentry-kafka-log
-              persistentVolumeClaim:
-                claimName: sentry-kafka-log
-            - name: sentry-secrets
-              persistentVolumeClaim:
-                claimName: sentry-secrets
-      test: false
-      triggers:
-        - type: ConfigChange
-    status: {}
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: sentry-kafka
-      name: sentry-kafka
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 100Mi
-    status: {}
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: sentry-kafka-log
-      name: sentry-kafka-log
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 100Mi
-    status: {}
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: sentry-secrets
-      name: sentry-secrets
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 100Mi
-    status: {}
-  - apiVersion: v1
-    kind: DeploymentConfig
-    metadata:
-      annotations:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: memcached
-      name: memcached
-    spec:
-      replicas: 1
-      selector:
-        io.sentry.service: memcached
-      strategy:
-        resources: {}
-      template:
-        metadata:
-          creationTimestamp: null
-          labels:
-            io.sentry.service: memcached
-        spec:
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+            - name: init-web
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup web; do echo waiting for web; sleep 2; done;"]
           containers:
-            - image: "memcached:1.5-alpine"
-              name: memcached
-              ports:
-                - containerPort: 11211
-              resources: {}
-          restartPolicy: Always
-      test: false
-      triggers:
-        - type: ConfigChange
-    status: {}
+            - name: web
+              image: "internal-sentry"
+              args:
+                - createuser
+                - --no-input
+                - --email
+                - ${ADMIN_USERNAME}
+                - --password
+                - ${ADMIN_PASSWORD}
+                - --superuser
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-data
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+              env:
+                - name: ADMIN_USERNAME
+                  value: "${ADMIN_USERNAME}"
+                - name: ADMIN_PASSWORD
+                  value: "${ADMIN_PASSWORD}"
+                - name: SENTRY_CONF
+                  value: '/etc/sentry'
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+          restartPolicy: OnFailure
+          volumes:
+            - name: sentry-data
+              persistentVolumeClaim:
+                claimName: sentry-data
+            - name: sentry-conf
+              persistentVolumeClaim:
+                claimName: sentry-conf
+  - apiVersion: batch/v1beta1
+    kind: CronJob
+    metadata:
+      name: sentry-cleanup
+      labels:
+        component: sentry
+    spec:
+      schedule: "0 0 * * *"
+      concurrencyPolicy: Allow
+      suspend: false
+      successfulJobsHistoryLimit: 3
+      failedJobsHistoryLimit: 1
+      jobTemplate:
+        spec:
+          template:
+            metadata:
+              labels:
+                component: sentry
+            spec:
+              containers:
+                - name: sentry-cleanup
+                  env:
+                    - name: SENTRY_CONF
+                      value: '/etc/sentry'
+                    - name: SNUBA
+                      value: http://snuba-api:1218
+                  envFrom:
+                    - configMapRef:
+                        name: "sentry-config"
+                    - secretRef:
+                        name: "sentry-secret"
+                  image: "internal-sentry"
+                  command: ["sh", "-c", "sentry cleanup --days ${SENTRY_EVENT_RETENTION_DAYS}"]
+                  volumeMounts:
+                    - mountPath: /data
+                      name: sentry-data
+                    - mountPath: /etc/sentry
+                      name: sentry-conf
+              restartPolicy: Never
+              volumes:
+                - name: sentry-data
+                  persistentVolumeClaim:
+                    claimName: sentry-data
+                - name: sentry-conf
+                  persistentVolumeClaim:
+                    claimName: sentry-conf
   - apiVersion: v1
     kind: DeploymentConfig
     metadata:
@@ -1008,6 +1070,712 @@ objects:
       annotations:
       creationTimestamp: null
       labels:
+        io.sentry.service: worker
+      name: worker
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: worker
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: worker
+        spec:
+          initContainers:
+            - name: init-sentry-config
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until [ -f /etc/sentry/config.yml ] && [ -f /etc/sentry/sentry.conf.py ] && [ -f /etc/sentry/requirements.txt ]; do echo waiting for config; sleep 2; done;"]
+              volumeMounts:
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-postgres
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
+            - name: init-memcached
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup memcached; do echo waiting for memcached; sleep 2; done;"]
+            - name: init-smtp
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup smtp; do echo waiting for smtp; sleep 2; done;"]
+            - name: init-snuba-api
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-api; do echo waiting for snuba-api; sleep 2; done;"]
+            - name: init-snuba-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-consumer; do echo waiting for snuba-consumer; sleep 2; done;"]
+            - name: init-snuba-outcomes-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-outcomes-consumer; do echo waiting for snuba-outcomes-consumer; sleep 2; done;"]
+            - name: init-snuba-sessions-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-sessions-consumer; do echo waiting for snuba-sessions-consumer; sleep 2; done;"]
+            - name: init-snuba-transactions-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-transactions-consumer; do echo waiting for snuba-transactions-consumer; sleep 2; done;"]
+            - name: init-snuba-replacer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-replacer; do echo waiting for snuba-replacer; sleep 2; done;"]
+            - name: init-symbolicator
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
+          containers:
+            - args:
+                - run
+                - worker
+              env:
+                - name: SENTRY_CONF
+                  value: '/etc/sentry'
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+              image: " "
+              name: worker
+              ports:
+                - containerPort: 9000
+              resources: {}
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-data
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-data
+              persistentVolumeClaim:
+                claimName: sentry-data
+            - name: sentry-conf
+              persistentVolumeClaim:
+                claimName: sentry-conf
+      test: false
+      triggers:
+        - type: ConfigChange
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - worker
+            from:
+              kind: ImageStreamTag
+              name: "sentry:latest"
+          type: ImageChange
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: ingest-consumer
+      name: ingest-consumer
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: ingest-consumer
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: ingest-consumer
+        spec:
+          initContainers:
+            - name: init-sentry-config
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until [ -f /etc/sentry/config.yml ] && [ -f /etc/sentry/sentry.conf.py ] && [ -f /etc/sentry/requirements.txt ]; do echo waiting for config; sleep 2; done;"]
+              volumeMounts:
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-postgres
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
+            - name: init-memcached
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup memcached; do echo waiting for memcached; sleep 2; done;"]
+            - name: init-smtp
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup smtp; do echo waiting for smtp; sleep 2; done;"]
+            - name: init-snuba-api
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-api; do echo waiting for snuba-api; sleep 2; done;"]
+            - name: init-snuba-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-consumer; do echo waiting for snuba-consumer; sleep 2; done;"]
+            - name: init-snuba-outcomes-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-outcomes-consumer; do echo waiting for snuba-outcomes-consumer; sleep 2; done;"]
+            - name: init-snuba-sessions-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-sessions-consumer; do echo waiting for snuba-sessions-consumer; sleep 2; done;"]
+            - name: init-snuba-transactions-consumer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-transactions-consumer; do echo waiting for snuba-transactions-consumer; sleep 2; done;"]
+            - name: init-snuba-replacer
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup snuba-replacer; do echo waiting for snuba-replacer; sleep 2; done;"]
+            - name: init-symbolicator
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
+          containers:
+            - args:
+                - run
+                - ingest-consumer
+                - --all-consumer-types
+              env:
+                - name: SENTRY_CONF
+                  value: '/etc/sentry'
+                - name: SNUBA
+                  value: http://snuba-api:1218
+              envFrom:
+                - configMapRef:
+                    name: "sentry-config"
+                - secretRef:
+                    name: "sentry-secret"
+              image: " "
+              name: ingest-consumer
+              ports:
+                - containerPort: 9000
+              resources: {}
+              volumeMounts:
+                - mountPath: /data
+                  name: sentry-data
+                - mountPath: /etc/sentry
+                  name: sentry-conf
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-data
+              persistentVolumeClaim:
+                claimName: sentry-data
+            - name: sentry-conf
+              persistentVolumeClaim:
+                claimName: sentry-conf
+      test: false
+      triggers:
+        - type: ConfigChange
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - ingest-consumer
+            from:
+              kind: ImageStreamTag
+              name: "sentry:latest"
+          type: ImageChange
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: nginx
+      name: nginx
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: nginx
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 1000
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: nginx
+        spec:
+          containers:
+            - image: "nginx:1.16"
+              name: nginx
+              ports:
+                - containerPort: 9000
+              resources: {}
+              volumeMounts:
+                - mountPath: /etc/nginx
+                  name: sentry-nginx-conf
+          initContainers:
+            - name: init-nginx-config
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until [ -f /etc/nginx/nginx.conf ]; do echo waiting for config; sleep 2; done;"]
+              volumeMounts:
+                - mountPath: /etc/nginx
+                  name: sentry-nginx-conf
+            - name: init-web
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup web; do echo waiting for web; sleep 2; done;"]
+            - name: init-relay
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup relay; do echo waiting for relay; sleep 2; done;"]
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-nginx-conf
+              persistentVolumeClaim:
+                claimName: sentry-nginx-conf
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: "true"
+      name: sentry-get-nginx-config
+      labels:
+        component: sentry
+    spec:
+      selector: {}
+      template:
+        metadata:
+          name: sentry-get-nginx-config
+          labels:
+            component: sentry
+        spec:
+          containers:
+            - name: sentry-get-nginx-config
+              image: "curlimages/curl:latest"
+              args:
+                - -L 
+                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/nginx/nginx.conf"
+                - -o 
+                - "/etc/nginx/nginx.conf"
+              volumeMounts:
+                - mountPath: /etc/nginx
+                  name: sentry-nginx-conf
+              env:
+                - name: http_proxy
+                  value: "${HTTP_PROXY}"
+                - name: https_proxy
+                  value: "${HTTPS_PROXY}"
+                - name: no_proxy
+                  value: "${NO_PROXY}"
+          restartPolicy: OnFailure
+          volumes:
+            - name: sentry-nginx-conf
+              persistentVolumeClaim:
+                claimName: sentry-nginx-conf
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-nginx-conf
+      name: sentry-nginx-conf
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: relay
+      name: relay
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: relay
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 1000
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: relay
+        spec:
+          containers:
+            - image: "getsentry/relay:latest"
+              name: relay
+              ports:
+                - containerPort: 3000
+              env: 
+                # ugly fix because openshift/kubernetes automatically sets this to tcp://some.ip.adress:3000... I don't know why...
+                # See: https://forum.sentry.io/t/getsentry-relay-not-accepting-config-file/10693/4
+                - name: RELAY_PORT
+                  value: "3000"
+              resources: {}
+              volumeMounts:
+                - mountPath: /work/.relay
+                  name: sentry-relay-conf
+          initContainers:
+            - name: init-relay-config
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until [ -f /work/.relay/config.yml ] && [ -f  /work/.relay/credentials.json ]; do echo waiting for config; sleep 2; done;"]
+              volumeMounts:
+                - mountPath: /work/.relay
+                  name: sentry-relay-conf
+            - name: init-kafka
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
+            - name: init-redis
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+            - name: init-web
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup web; do echo waiting for web; sleep 2; done;"]
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-relay-conf
+              persistentVolumeClaim:
+                claimName: sentry-relay-conf
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: "true"
+      name: sentry-get-relay-config
+      labels:
+        component: sentry
+    spec:
+      selector: {}
+      template:
+        metadata:
+          name: sentry-get-relay-config
+          labels:
+            component: sentry
+        spec:
+          containers:
+            - name: sentry-get-relay-config
+              image: "curlimages/curl:latest"
+              args:
+                - -L 
+                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/relay/config.yml"
+                - -o 
+                - "/work/.relay/config.yml"
+              volumeMounts:
+                - mountPath: /work/.relay
+                  name: sentry-relay-conf
+              env:
+                - name: http_proxy
+                  value: "${HTTP_PROXY}"
+                - name: https_proxy
+                  value: "${HTTPS_PROXY}"
+                - name: no_proxy
+                  value: "${NO_PROXY}"
+          restartPolicy: OnFailure
+          volumes:
+            - name: sentry-relay-conf
+              persistentVolumeClaim:
+                claimName: sentry-relay-conf
+  - apiVersion: batch/v1
+    kind: Job
+    metadata:
+      annotations:
+        template.alpha.openshift.io/wait-for-ready: "true"
+      name: sentry-get-relay-credentials
+      labels:
+        component: sentry
+    spec:
+      selector: {}
+      template:
+        metadata:
+          name: sentry-get-relay-credentials
+          labels:
+            component: sentry
+        spec:
+          initContainers:
+            - name: init-relay-config
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until [ -f /work/.relay/config.yml ]; do echo waiting for config; sleep 2; done;"]
+              volumeMounts:
+                - mountPath: /work/.relay
+                  name: sentry-relay-conf
+          containers:
+            - name: sentry-get-relay-credentials
+              image: "getsentry/relay:latest"
+              command: 
+                - /bin/bash
+              args:
+                # really ugly workaround. the rely cmd wants to read the credentials.json which was generated by the redirect in the end and is empty at this time.
+                # that's why I had to insert the sleep and the workaround with the env var.
+                - -c
+                - "CRED=$(relay credentials generate --stdout); sleep 10; echo $CRED > /work/.relay/credentials.json"
+              env: 
+                # ugly fix because openshift/kubernetes automatically sets this to tcp://some.ip.adress:3000... I don't know why...
+                # See: https://forum.sentry.io/t/getsentry-relay-not-accepting-config-file/10693/4
+                - name: RELAY_PORT
+                  value: "3000"
+              volumeMounts:
+                - mountPath: /work/.relay
+                  name: sentry-relay-conf
+          restartPolicy: OnFailure
+          volumes:
+            - name: sentry-relay-conf
+              persistentVolumeClaim:
+                claimName: sentry-relay-conf
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-relay-conf
+      name: sentry-relay-conf
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: clickhouse
+      name: clickhouse
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: clickhouse
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: clickhouse
+        spec:
+          containers:
+            - image: "yandex/clickhouse-server:20.3.9.70"
+              name: clickhouse
+              ports:
+                - containerPort: 8123
+                - containerPort: 9000
+                - containerPort: 9009
+              resources: {}
+              volumeMounts:
+                - mountPath: /var/lib/clickhouse
+                  name: sentry-clickhouse
+                - mountPath: /var/log/clickhouse-server
+                  name: sentry-clickhouse-log
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-clickhouse
+              persistentVolumeClaim:
+                claimName: sentry-clickhouse
+            - name: sentry-clickhouse-log
+              persistentVolumeClaim:
+                claimName: sentry-clickhouse-log
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-clickhouse
+      name: sentry-clickhouse
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-clickhouse-log
+      name: sentry-clickhouse-log
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: kafka
+      name: kafka
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: kafka
+      strategy:
+        resources: {}
+        type: Recreate
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: kafka
+        spec:
+          initContainers:
+            - name: init-zookeeper
+              image: "busybox:1.28.4"
+              command: ["sh", "-c", "until nslookup zookeeper; do echo waiting for redis; sleep 2; done;"]
+          containers:
+            - env:
+                - name: CONFLUENT_SUPPORT_METRICS_ENABLE
+                  value: "false"
+                - name: KAFKA_ADVERTISED_LISTENERS
+                  value: PLAINTEXT://kafka-service:9092
+                - name: KAFKA_LOG4J_LOGGERS
+                  value: kafka.cluster=WARN,kafka.controller=WARN,kafka.coordinator=WARN,kafka.log=WARN,kafka.server=WARN,kafka.zookeeper=WARN,state.change.logger=WARN
+                - name: KAFKA_LOG4J_ROOT_LOGLEVEL
+                  value: WARN
+                - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+                  value: "1"
+                - name: KAFKA_MESSAGE_MAX_BYTES
+                  value: '50000000' #50MB or bust
+                - name: KAFKA_MAX_REQUEST_SIZE
+                  value: '50000000' #50MB on requests apparently too
+                - name: KAFKA_TOOLS_LOG4J_LOGLEVEL
+                  value: WARN
+                - name: KAFKA_ZOOKEEPER_CONNECT
+                  value: zookeeper:2181
+              image: "confluentinc/cp-kafka:5.5.0"
+              name: kafka
+              ports:
+                - containerPort: 9092
+              resources: {}
+              volumeMounts:
+                - mountPath: /var/lib/kafka/data
+                  name: sentry-kafka
+                - mountPath: /var/lib/kafka/log
+                  name: sentry-kafka-log
+                - mountPath: /etc/kafka/secrets
+                  name: sentry-secrets
+          restartPolicy: Always
+          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
+          volumes:
+            - name: sentry-kafka
+              persistentVolumeClaim:
+                claimName: sentry-kafka
+            - name: sentry-kafka-log
+              persistentVolumeClaim:
+                claimName: sentry-kafka-log
+            - name: sentry-secrets
+              persistentVolumeClaim:
+                claimName: sentry-secrets
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-kafka
+      name: sentry-kafka
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-kafka-log
+      name: sentry-kafka-log
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: memcached
+      name: memcached
+    spec:
+      replicas: 1
+      selector:
+        io.sentry.service: memcached
+      strategy:
+        resources: {}
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            io.sentry.service: memcached
+        spec:
+          containers:
+            - image: "memcached:1.5-alpine"
+              name: memcached
+              ports:
+                - containerPort: 11211
+              resources: {}
+          restartPolicy: Always
+      test: false
+      triggers:
+        - type: ConfigChange
+    status: {}
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      annotations:
+      creationTimestamp: null
+      labels:
         io.sentry.service: postgres
       name: postgres
     spec:
@@ -1113,52 +1881,6 @@ objects:
         requests:
           storage: 100Mi
     status: {}
-  - apiVersion: batch/v1beta1
-    kind: CronJob
-    metadata:
-      name: sentry-cleanup
-      labels:
-        component: sentry
-    spec:
-      schedule: "0 0 * * *"
-      concurrencyPolicy: Allow
-      suspend: false
-      successfulJobsHistoryLimit: 3
-      failedJobsHistoryLimit: 1
-      jobTemplate:
-        spec:
-          template:
-            metadata:
-              labels:
-                component: sentry
-            spec:
-              containers:
-                - name: sentry-cleanup
-                  env:
-                    - name: SENTRY_CONF
-                      value: '/etc/sentry'
-                    - name: SNUBA
-                      value: http://snuba-api:1218
-                  envFrom:
-                    - configMapRef:
-                        name: "sentry-config"
-                    - secretRef:
-                        name: "sentry-secret"
-                  image: "internal-sentry"
-                  command: ["sh", "-c", "sentry cleanup --days ${SENTRY_EVENT_RETENTION_DAYS}"]
-                  volumeMounts:
-                    - mountPath: /data
-                      name: sentry-data
-                    - mountPath: /etc/sentry
-                      name: sentry-conf
-              restartPolicy: Never
-              volumes:
-                - name: sentry-data
-                  persistentVolumeClaim:
-                    claimName: sentry-data
-                - name: sentry-conf
-                  persistentVolumeClaim:
-                    claimName: sentry-conf
   - apiVersion: v1
     kind: DeploymentConfig
     metadata:
@@ -1286,44 +2008,6 @@ objects:
       triggers:
         - type: ConfigChange
     status: {}
-  - apiVersion: batch/v1beta1
-    kind: CronJob
-    metadata:
-      name: snuba-cleanup
-      labels:
-        component: snuba
-    spec:
-      schedule: "*/5 * * * *"
-      concurrencyPolicy: Allow
-      suspend: false
-      successfulJobsHistoryLimit: 3
-      failedJobsHistoryLimit: 1
-      jobTemplate:
-        spec:
-          template:
-            metadata:
-              labels:
-                component: snuba
-            spec:
-              initContainers:
-                - name: init-redis
-                  image: "busybox:1.28.4"
-                  command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
-                - name: init-clickhouse
-                  image: "busybox:1.28.4"
-                  command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
-                - name: init-kafka
-                  image: "busybox:1.28.4"
-                  command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
-              containers:
-                - name: snuba-cleanup
-                  image: "getsentry/snuba:latest"
-                  command: ["sh", "-c", "snuba cleanup --dry-run False"]
-                  envFrom:
-                  - configMapRef:
-                      name: "sentry-snuba-config"
-              restartPolicy: Never
-              serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
   - apiVersion: v1
     kind: DeploymentConfig
     metadata:
@@ -1601,6 +2285,44 @@ objects:
       triggers:
         - type: ConfigChange
     status: {}
+  - apiVersion: batch/v1beta1
+    kind: CronJob
+    metadata:
+      name: snuba-cleanup
+      labels:
+        component: snuba
+    spec:
+      schedule: "*/5 * * * *"
+      concurrencyPolicy: Allow
+      suspend: false
+      successfulJobsHistoryLimit: 3
+      failedJobsHistoryLimit: 1
+      jobTemplate:
+        spec:
+          template:
+            metadata:
+              labels:
+                component: snuba
+            spec:
+              initContainers:
+                - name: init-redis
+                  image: "busybox:1.28.4"
+                  command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
+                - name: init-clickhouse
+                  image: "busybox:1.28.4"
+                  command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
+                - name: init-kafka
+                  image: "busybox:1.28.4"
+                  command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
+              containers:
+                - name: snuba-cleanup
+                  image: "getsentry/snuba:latest"
+                  command: ["sh", "-c", "snuba cleanup --dry-run False"]
+                  envFrom:
+                  - configMapRef:
+                      name: "sentry-snuba-config"
+              restartPolicy: Never
+              serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
   - apiVersion: v1
     kind: DeploymentConfig
     metadata:
@@ -1656,6 +2378,20 @@ objects:
       triggers:
         - type: ConfigChange
     status: {}
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.sentry.service: sentry-symbolicator
+      name: sentry-symbolicator
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+    status: {}
   - apiVersion: batch/v1beta1
     kind: CronJob
     metadata:
@@ -1687,65 +2423,6 @@ objects:
                 - name: sentry-symbolicator
                   persistentVolumeClaim:
                     claimName: sentry-symbolicator
-  - apiVersion: batch/v1
-    kind: Job
-    metadata:
-      annotations:
-        template.alpha.openshift.io/wait-for-ready: "true"
-      name: sentry-createuser
-      labels:
-        component: sentry
-    spec:
-      selector: {}
-      template:
-        metadata:
-          name: sentry-createuser
-          labels:
-            component: sentry
-        spec:
-          initContainers:
-            - name: init-sentry-config
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until [ -f /etc/sentry/config.yml ] && [ -f /etc/sentry/sentry.conf.py ] && [ -f /etc/sentry/requirements.txt ]; do echo waiting for config; sleep 2; done;"]
-              volumeMounts:
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-            - name: init-web
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup web; do echo waiting for web; sleep 2; done;"]
-          containers:
-            - name: web
-              image: "internal-sentry"
-              args:
-                - createuser
-                - --no-input
-                - --email
-                - ${ADMIN_USERNAME}
-                - --password
-                - ${ADMIN_PASSWORD}
-                - --superuser
-              volumeMounts:
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-              env:
-                - name: ADMIN_USERNAME
-                  value: "${ADMIN_USERNAME}"
-                - name: ADMIN_PASSWORD
-                  value: "${ADMIN_PASSWORD}"
-                - name: SENTRY_CONF
-                  value: '/etc/sentry'
-                - name: SNUBA
-                  value: http://snuba-api:1218
-              envFrom:
-                - configMapRef:
-                    name: "sentry-config"
-                - secretRef:
-                    name: "sentry-secret"
-          restartPolicy: OnFailure
-          volumes:
-            - name: sentry-conf
-              persistentVolumeClaim:
-                claimName: sentry-conf
   - apiVersion: batch/v1
     kind: Job
     metadata:
@@ -1798,727 +2475,6 @@ objects:
       resources:
         requests:
           storage: 100Mi
-    status: {}
-  - apiVersion: batch/v1
-    kind: Job
-    metadata:
-      annotations:
-        template.alpha.openshift.io/wait-for-ready: "true"
-      name: sentry-get-sentry-config
-      labels:
-        component: sentry
-    spec:
-      selector: {}
-      template:
-        metadata:
-          name: sentry-get-sentry-config
-          labels:
-            component: sentry
-        spec:
-          containers:
-            - name: sentry-get-sentry-config
-              image: "curlimages/curl:latest"
-              args:
-                - -L 
-                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/sentry/{config.yml,sentry.conf.py,requirements.txt}"
-                - -o 
-                - "/etc/sentry/#1"
-              volumeMounts:
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-              env:
-                - name: http_proxy
-                  value: "${HTTP_PROXY}"
-                - name: https_proxy
-                  value: "${HTTPS_PROXY}"
-                - name: no_proxy
-                  value: "${NO_PROXY}"
-          restartPolicy: OnFailure
-          volumes:
-            - name: sentry-conf
-              persistentVolumeClaim:
-                claimName: sentry-conf
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: sentry-conf
-      name: sentry-conf
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 100Mi
-    status: {}
-  - apiVersion: batch/v1
-    kind: Job
-    metadata:
-      annotations:
-        template.alpha.openshift.io/wait-for-ready: "true"
-      name: sentry-get-nginx-config
-      labels:
-        component: sentry
-    spec:
-      selector: {}
-      template:
-        metadata:
-          name: sentry-get-nginx-config
-          labels:
-            component: sentry
-        spec:
-          containers:
-            - name: sentry-get-nginx-config
-              image: "curlimages/curl:latest"
-              args:
-                - -L 
-                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/nginx/nginx.conf"
-                - -o 
-                - "/etc/nginx/nginx.conf"
-              volumeMounts:
-                - mountPath: /etc/nginx
-                  name: sentry-nginx-conf
-              env:
-                - name: http_proxy
-                  value: "${HTTP_PROXY}"
-                - name: https_proxy
-                  value: "${HTTPS_PROXY}"
-                - name: no_proxy
-                  value: "${NO_PROXY}"
-          restartPolicy: OnFailure
-          volumes:
-            - name: sentry-nginx-conf
-              persistentVolumeClaim:
-                claimName: sentry-nginx-conf
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: sentry-nginx-conf
-      name: sentry-nginx-conf
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 100Mi
-    status: {}
-  - apiVersion: batch/v1
-    kind: Job
-    metadata:
-      annotations:
-        template.alpha.openshift.io/wait-for-ready: "true"
-      name: sentry-get-relay-config
-      labels:
-        component: sentry
-    spec:
-      selector: {}
-      template:
-        metadata:
-          name: sentry-get-relay-config
-          labels:
-            component: sentry
-        spec:
-          containers:
-            - name: sentry-get-relay-config
-              image: "curlimages/curl:latest"
-              args:
-                - -L 
-                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/relay/config.yml"
-                - -o 
-                - "/work/.relay/config.yml"
-              volumeMounts:
-                - mountPath: /work/.relay
-                  name: sentry-relay-conf
-              env:
-                - name: http_proxy
-                  value: "${HTTP_PROXY}"
-                - name: https_proxy
-                  value: "${HTTPS_PROXY}"
-                - name: no_proxy
-                  value: "${NO_PROXY}"
-          restartPolicy: OnFailure
-          volumes:
-            - name: sentry-relay-conf
-              persistentVolumeClaim:
-                claimName: sentry-relay-conf
-  - apiVersion: batch/v1
-    kind: Job
-    metadata:
-      annotations:
-        template.alpha.openshift.io/wait-for-ready: "true"
-      name: sentry-get-relay-credentials
-      labels:
-        component: sentry
-    spec:
-      selector: {}
-      template:
-        metadata:
-          name: sentry-get-relay-credentials
-          labels:
-            component: sentry
-        spec:
-          initContainers:
-            - name: init-relay-config
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until [ -f /work/.relay/config.yml ]; do echo waiting for config; sleep 2; done;"]
-              volumeMounts:
-                - mountPath: /work/.relay
-                  name: sentry-relay-conf
-          containers:
-            - name: sentry-get-relay-credentials
-              image: "getsentry/relay:latest"
-              command: 
-                - /bin/bash
-              args:
-                # really ugly workaround. the rely cmd wants to read the credentials.json which was generated by the redirect in the end and is empty at this time.
-                # that's why I had to insert the sleep and the workaround with the env var.
-                - -c
-                - "CRED=$(relay credentials generate --stdout); sleep 10; echo $CRED > /work/.relay/credentials.json"
-              env: 
-                # ugly fix because openshift/kubernetes automatically sets this to tcp://some.ip.adress:3000... I don't know why...
-                # See: https://forum.sentry.io/t/getsentry-relay-not-accepting-config-file/10693/4
-                - name: RELAY_PORT
-                  value: "3000"
-              volumeMounts:
-                - mountPath: /work/.relay
-                  name: sentry-relay-conf
-          restartPolicy: OnFailure
-          volumes:
-            - name: sentry-relay-conf
-              persistentVolumeClaim:
-                claimName: sentry-relay-conf
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: sentry-relay-conf
-      name: sentry-relay-conf
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 100Mi
-    status: {}
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: sentry-symbolicator
-      name: sentry-symbolicator
-    spec:
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 100Mi
-    status: {}
-  - apiVersion: v1
-    kind: DeploymentConfig
-    metadata:
-      annotations:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: web
-      name: web
-    spec:
-      replicas: 1
-      selector:
-        io.sentry.service: web
-      strategy:
-        activeDeadlineSeconds: 21600
-        resources: {}
-        rollingParams:
-          intervalSeconds: 1
-          maxSurge: 25%
-          maxUnavailable: 25%
-          timeoutSeconds: 1000
-          updatePeriodSeconds: 1
-        type: Rolling
-      template:
-        metadata:
-          creationTimestamp: null
-          labels:
-            io.sentry.service: web
-        spec:
-          containers:
-            - env:
-                - name: SENTRY_CONF
-                  value: '/etc/sentry'
-                - name: SNUBA
-                  value: http://snuba-api:1218
-              envFrom:
-                - configMapRef:
-                    name: "sentry-config"
-                - secretRef:
-                    name: "sentry-secret"
-              image: " "
-              name: web
-              ports:
-                - containerPort: 9000
-              resources: {}
-              volumeMounts:
-                - mountPath: /data
-                  name: sentry-data
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-          initContainers:
-            - name: init-sentry-config
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until [ -f /etc/sentry/config.yml ] && [ -f /etc/sentry/sentry.conf.py ] && [ -f /etc/sentry/requirements.txt ]; do echo waiting for config; sleep 2; done;"]
-              volumeMounts:
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-            - name: init-redis
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
-            - name: init-postgres
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
-            - name: init-memcached
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup memcached; do echo waiting for memcached; sleep 2; done;"]
-            - name: init-smtp
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup smtp; do echo waiting for smtp; sleep 2; done;"]
-            - name: init-snuba-api
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-api; do echo waiting for snuba-api; sleep 2; done;"]
-            - name: init-snuba-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-consumer; do echo waiting for snuba-consumer; sleep 2; done;"]
-            - name: init-snuba-outcomes-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-outcomes-consumer; do echo waiting for snuba-outcomes-consumer; sleep 2; done;"]
-            - name: init-snuba-sessions-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-sessions-consumer; do echo waiting for snuba-sessions-consumer; sleep 2; done;"]
-            - name: init-snuba-transactions-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-transactions-consumer; do echo waiting for snuba-transactions-consumer; sleep 2; done;"]
-            - name: init-snuba-replacer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-replacer; do echo waiting for snuba-replacer; sleep 2; done;"]
-            - name: init-symbolicator
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
-            - name: init-kafka
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
-            - name: init-clickhouse
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup clickhouse; do echo waiting for clickhouse; sleep 2; done;"]
-            - name: init-clickhouse-client
-              image: "yandex/clickhouse-server:19.4"
-              command: ["sh", "-c", 'clickhouse client -h clickhouse --query="SHOW TABLES;" | grep sentry_local && exit 0']
-            - name: init-web-upgrade
-              env:
-                - name: SENTRY_CONF
-                  value: '/etc/sentry'
-                - name: SNUBA
-                  value: http://snuba-api:1218
-              envFrom:
-                - configMapRef:
-                    name: "sentry-config"
-                - secretRef:
-                    name: "sentry-secret"
-              image: "internal-sentry"
-              args: ["sentry upgrade --noinput"]
-              volumeMounts:
-                - mountPath: /data
-                  name: sentry-data
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-            - name: init-file-storage-migrate
-              env:
-              - name: SENTRY_CONF
-                value: '/etc/sentry'
-              - name: SNUBA
-                value: http://snuba-api:1218
-              envFrom: 
-              - configMapRef:
-                  name: sentry-config
-              - secretRef:
-                  name: sentry-secret
-              image: "internal-sentry"
-              command: ["sh", "-c", "mkdir -p /tmp/files; mv /data/* /tmp/files/; mv /tmp/files /data/files; chown -R sentry:sentry /data"]
-              volumeMounts:
-                - mountPath: /data
-                  name: sentry-data
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-          restartPolicy: Always
-          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
-          volumes:
-            - name: sentry-data
-              persistentVolumeClaim:
-                claimName: sentry-data
-            - name: sentry-conf
-              persistentVolumeClaim:
-                claimName: sentry-conf
-      test: false
-      triggers:
-        - type: ConfigChange
-        - imageChangeParams:
-            automatic: true
-            containerNames:
-              - web
-            from:
-              kind: ImageStreamTag
-              name: "internal-sentry:latest"
-          type: ImageChange
-    status: {}
-  - apiVersion: v1
-    kind: DeploymentConfig
-    metadata:
-      annotations:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: nginx
-      name: nginx
-    spec:
-      replicas: 1
-      selector:
-        io.sentry.service: nginx
-      strategy:
-        activeDeadlineSeconds: 21600
-        resources: {}
-        rollingParams:
-          intervalSeconds: 1
-          maxSurge: 25%
-          maxUnavailable: 25%
-          timeoutSeconds: 1000
-          updatePeriodSeconds: 1
-        type: Rolling
-      template:
-        metadata:
-          creationTimestamp: null
-          labels:
-            io.sentry.service: nginx
-        spec:
-          containers:
-            - image: "nginx:1.16"
-              name: nginx
-              ports:
-                - containerPort: 9000
-              resources: {}
-              volumeMounts:
-                - mountPath: /etc/nginx
-                  name: sentry-nginx-conf
-          initContainers:
-            - name: init-nginx-config
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until [ -f /etc/nginx/nginx.conf ]; do echo waiting for config; sleep 2; done;"]
-              volumeMounts:
-                - mountPath: /etc/nginx
-                  name: sentry-nginx-conf
-            - name: init-web
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup web; do echo waiting for web; sleep 2; done;"]
-            - name: init-relay
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup relay; do echo waiting for relay; sleep 2; done;"]
-          restartPolicy: Always
-          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
-          volumes:
-            - name: sentry-nginx-conf
-              persistentVolumeClaim:
-                claimName: sentry-nginx-conf
-      test: false
-      triggers:
-        - type: ConfigChange
-    status: {}
-  - apiVersion: v1
-    kind: DeploymentConfig
-    metadata:
-      annotations:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: relay
-      name: relay
-    spec:
-      replicas: 1
-      selector:
-        io.sentry.service: relay
-      strategy:
-        activeDeadlineSeconds: 21600
-        resources: {}
-        rollingParams:
-          intervalSeconds: 1
-          maxSurge: 25%
-          maxUnavailable: 25%
-          timeoutSeconds: 1000
-          updatePeriodSeconds: 1
-        type: Rolling
-      template:
-        metadata:
-          creationTimestamp: null
-          labels:
-            io.sentry.service: relay
-        spec:
-          containers:
-            - image: "getsentry/relay:latest"
-              name: relay
-              ports:
-                - containerPort: 3000
-              env: 
-                # ugly fix because openshift/kubernetes automatically sets this to tcp://some.ip.adress:3000... I don't know why...
-                # See: https://forum.sentry.io/t/getsentry-relay-not-accepting-config-file/10693/4
-                - name: RELAY_PORT
-                  value: "3000"
-              resources: {}
-              volumeMounts:
-                - mountPath: /work/.relay
-                  name: sentry-relay-conf
-          initContainers:
-            - name: init-relay-config
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until [ -f /work/.relay/config.yml ] && [ -f  /work/.relay/credentials.json ]; do echo waiting for config; sleep 2; done;"]
-              volumeMounts:
-                - mountPath: /work/.relay
-                  name: sentry-relay-conf
-            - name: init-kafka
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
-            - name: init-redis
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
-            - name: init-web
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup web; do echo waiting for web; sleep 2; done;"]
-          restartPolicy: Always
-          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
-          volumes:
-            - name: sentry-relay-conf
-              persistentVolumeClaim:
-                claimName: sentry-relay-conf
-      test: false
-      triggers:
-        - type: ConfigChange
-    status: {}
-  - apiVersion: v1
-    kind: DeploymentConfig
-    metadata:
-      annotations:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: worker
-      name: worker
-    spec:
-      replicas: 1
-      selector:
-        io.sentry.service: worker
-      strategy:
-        resources: {}
-        type: Recreate
-      template:
-        metadata:
-          creationTimestamp: null
-          labels:
-            io.sentry.service: worker
-        spec:
-          initContainers:
-            - name: init-sentry-config
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until [ -f /etc/sentry/config.yml ] && [ -f /etc/sentry/sentry.conf.py ] && [ -f /etc/sentry/requirements.txt ]; do echo waiting for config; sleep 2; done;"]
-              volumeMounts:
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-            - name: init-redis
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
-            - name: init-postgres
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
-            - name: init-memcached
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup memcached; do echo waiting for memcached; sleep 2; done;"]
-            - name: init-smtp
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup smtp; do echo waiting for smtp; sleep 2; done;"]
-            - name: init-snuba-api
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-api; do echo waiting for snuba-api; sleep 2; done;"]
-            - name: init-snuba-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-consumer; do echo waiting for snuba-consumer; sleep 2; done;"]
-            - name: init-snuba-outcomes-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-outcomes-consumer; do echo waiting for snuba-outcomes-consumer; sleep 2; done;"]
-            - name: init-snuba-sessions-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-sessions-consumer; do echo waiting for snuba-sessions-consumer; sleep 2; done;"]
-            - name: init-snuba-transactions-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-transactions-consumer; do echo waiting for snuba-transactions-consumer; sleep 2; done;"]
-            - name: init-snuba-replacer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-replacer; do echo waiting for snuba-replacer; sleep 2; done;"]
-            - name: init-symbolicator
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
-            - name: init-kafka
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
-          containers:
-            - args:
-                - run
-                - worker
-              env:
-                - name: SENTRY_CONF
-                  value: '/etc/sentry'
-                - name: SNUBA
-                  value: http://snuba-api:1218
-              envFrom:
-                - configMapRef:
-                    name: "sentry-config"
-                - secretRef:
-                    name: "sentry-secret"
-              image: " "
-              name: worker
-              ports:
-                - containerPort: 9000
-              resources: {}
-              volumeMounts:
-                - mountPath: /data
-                  name: sentry-data
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-          restartPolicy: Always
-          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
-          volumes:
-            - name: sentry-data
-              persistentVolumeClaim:
-                claimName: sentry-data
-            - name: sentry-conf
-              persistentVolumeClaim:
-                claimName: sentry-conf
-      test: false
-      triggers:
-        - type: ConfigChange
-        - imageChangeParams:
-            automatic: true
-            containerNames:
-              - worker
-            from:
-              kind: ImageStreamTag
-              name: "sentry:latest"
-          type: ImageChange
-    status: {}
-  - apiVersion: v1
-    kind: DeploymentConfig
-    metadata:
-      annotations:
-      creationTimestamp: null
-      labels:
-        io.sentry.service: ingest-consumer
-      name: ingest-consumer
-    spec:
-      replicas: 1
-      selector:
-        io.sentry.service: ingest-consumer
-      strategy:
-        resources: {}
-        type: Recreate
-      template:
-        metadata:
-          creationTimestamp: null
-          labels:
-            io.sentry.service: ingest-consumer
-        spec:
-          initContainers:
-            - name: init-sentry-config
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until [ -f /etc/sentry/config.yml ] && [ -f /etc/sentry/sentry.conf.py ] && [ -f /etc/sentry/requirements.txt ]; do echo waiting for config; sleep 2; done;"]
-              volumeMounts:
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-            - name: init-redis
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup redis; do echo waiting for redis; sleep 2; done;"]
-            - name: init-postgres
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup postgres; do echo waiting for postgres; sleep 2; done;"]
-            - name: init-memcached
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup memcached; do echo waiting for memcached; sleep 2; done;"]
-            - name: init-smtp
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup smtp; do echo waiting for smtp; sleep 2; done;"]
-            - name: init-snuba-api
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-api; do echo waiting for snuba-api; sleep 2; done;"]
-            - name: init-snuba-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-consumer; do echo waiting for snuba-consumer; sleep 2; done;"]
-            - name: init-snuba-outcomes-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-outcomes-consumer; do echo waiting for snuba-outcomes-consumer; sleep 2; done;"]
-            - name: init-snuba-sessions-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-sessions-consumer; do echo waiting for snuba-sessions-consumer; sleep 2; done;"]
-            - name: init-snuba-transactions-consumer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-transactions-consumer; do echo waiting for snuba-transactions-consumer; sleep 2; done;"]
-            - name: init-snuba-replacer
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup snuba-replacer; do echo waiting for snuba-replacer; sleep 2; done;"]
-            - name: init-symbolicator
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup symbolicator; do echo waiting for symbolicator; sleep 2; done;"]
-            - name: init-kafka
-              image: "busybox:1.28.4"
-              command: ["sh", "-c", "until nslookup kafka-service; do echo waiting for kafka-service; sleep 2; done;"]
-          containers:
-            - args:
-                - run
-                - ingest-consumer
-                - --all-consumer-types
-              env:
-                - name: SENTRY_CONF
-                  value: '/etc/sentry'
-                - name: SNUBA
-                  value: http://snuba-api:1218
-              envFrom:
-                - configMapRef:
-                    name: "sentry-config"
-                - secretRef:
-                    name: "sentry-secret"
-              image: " "
-              name: ingest-consumer
-              ports:
-                - containerPort: 9000
-              resources: {}
-              volumeMounts:
-                - mountPath: /data
-                  name: sentry-data
-                - mountPath: /etc/sentry
-                  name: sentry-conf
-          restartPolicy: Always
-          serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
-          volumes:
-            - name: sentry-data
-              persistentVolumeClaim:
-                claimName: sentry-data
-            - name: sentry-conf
-              persistentVolumeClaim:
-                claimName: sentry-conf
-      test: false
-      triggers:
-        - type: ConfigChange
-        - imageChangeParams:
-            automatic: true
-            containerNames:
-              - ingest-consumer
-            from:
-              kind: ImageStreamTag
-              name: "sentry:latest"
-          type: ImageChange
     status: {}
   - apiVersion: v1
     kind: DeploymentConfig
