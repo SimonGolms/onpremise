@@ -372,89 +372,89 @@ SENTRY_FEATURES.update(
 # LDAP settings #
 #################
 
-# sentry_ldap = env('LDAP_SERVER') or False
+sentry_ldap = env('LDAP_SERVER') or False
 
-# if sentry_ldap:
-#     import ldap
-#     import logging
-#     from django_auth_ldap.config import LDAPSearch, GroupOfUniqueNamesType
+if sentry_ldap:
+    import ldap
+    import logging
+    from django_auth_ldap.config import LDAPSearch, GroupOfUniqueNamesType
 
-#     AUTH_LDAP_SERVER_URI = str(env('LDAP_SERVER'))
-#     AUTH_LDAP_BIND_DN = str(env('LDAP_BIND_DN'))
-#     AUTH_LDAP_BIND_PASSWORD = str(env('LDAP_BIND_PASSWORD'))
+    AUTH_LDAP_SERVER_URI = str(env('LDAP_SERVER'))
+    AUTH_LDAP_BIND_DN = str(env('LDAP_BIND_DN'))
+    AUTH_LDAP_BIND_PASSWORD = str(env('LDAP_BIND_PASSWORD'))
 
-#     ldap_self_signed_cert = bool(env('LDAP_SELF_SIGNED_CERT')) or False
-#     if ldap_self_signed_cert:
-#         # Ignore certificate errors to accept a self-signed cert.
-#         LDAP_IGNORE_CERT_ERRORS = True
-#         AUTH_LDAP_GLOBAL_OPTIONS = {
-#             ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_NEVER
-#         }
+    ldap_self_signed_cert = bool(env('LDAP_SELF_SIGNED_CERT')) or False
+    if ldap_self_signed_cert:
+        # Ignore certificate errors to accept a self-signed cert.
+        LDAP_IGNORE_CERT_ERRORS = True
+        AUTH_LDAP_GLOBAL_OPTIONS = {
+            ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_NEVER
+        }
 
-#     AUTH_LDAP_USER_SEARCH = LDAPSearch(
-#         str(env('LDAP_USER_SEARCH_BASE_DN')),
-#         ldap.SCOPE_SUBTREE,
-#         str(env('LDAP_USER_SEARCH_FILTER')),
-#     )
+    AUTH_LDAP_USER_SEARCH = LDAPSearch(
+        str(env('LDAP_USER_SEARCH_BASE_DN')),
+        ldap.SCOPE_SUBTREE,
+        str(env('LDAP_USER_SEARCH_FILTER')),
+    )
 
-#     AUTH_LDAP_USER_ATTR_MAP = {
-#         'first_name': 'givenName',
-#         'last_name': 'sn',
-#         'email': 'mail',
-#         'name': 'displayName',
-#     }
+    AUTH_LDAP_USER_ATTR_MAP = {
+        'first_name': 'givenName',
+        'last_name': 'sn',
+        'email': 'mail',
+        'name': 'displayName',
+    }
 
-#     AUTH_LDAP_GROUP_TYPE = GroupOfUniqueNamesType()
+    AUTH_LDAP_GROUP_TYPE = GroupOfUniqueNamesType()
 
-#     AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
-#         str(env('LDAP_GROUP_SEARCH_BASE_DN')),
-#         ldap.SCOPE_SUBTREE,
-#         str(env('LDAP_GROUP_SEARCH_FILTER')),
-#     )
+    AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
+        str(env('LDAP_GROUP_SEARCH_BASE_DN')),
+        ldap.SCOPE_SUBTREE,
+        str(env('LDAP_GROUP_SEARCH_FILTER')),
+    )
 
-#     AUTH_LDAP_REQUIRE_GROUP = None
-#     AUTH_LDAP_DENY_GROUP = None
+    AUTH_LDAP_REQUIRE_GROUP = None
+    AUTH_LDAP_DENY_GROUP = None
 
-#     AUTH_LDAP_FIND_GROUP_PERMS = True
-#     AUTH_LDAP_CACHE_GROUPS = False
-#     AUTH_LDAP_GROUP_CACHE_TIMEOUT = 3600
+    AUTH_LDAP_FIND_GROUP_PERMS = True
+    AUTH_LDAP_CACHE_GROUPS = False
+    AUTH_LDAP_GROUP_CACHE_TIMEOUT = 3600
 
-#     AUTH_LDAP_DEFAULT_EMAIL_DOMAIN = str(env('LDAP_DEFAULT_EMAIL_DOMAIN'))
-#     AUTH_LDAP_DEFAULT_SENTRY_ORGANIZATION = str(env(
-#         'LDAP_DEFAULT_SENTRY_ORGANIZATION'))
-#     AUTH_LDAP_SENTRY_ORGANIZATION_ROLE_TYPE = str(env(
-#         'LDAP_SENTRY_ORGANIZATION_ROLE_TYPE'))
+    AUTH_LDAP_DEFAULT_EMAIL_DOMAIN = str(env('LDAP_DEFAULT_EMAIL_DOMAIN'))
+    AUTH_LDAP_DEFAULT_SENTRY_ORGANIZATION = str(env(
+        'LDAP_DEFAULT_SENTRY_ORGANIZATION'))
+    AUTH_LDAP_SENTRY_ORGANIZATION_ROLE_TYPE = str(env(
+        'LDAP_SENTRY_ORGANIZATION_ROLE_TYPE'))
 
-#     group_role_mapping = env('LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER') or env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER') or env(
-#         'LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN') or env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER') or False
-#     if group_role_mapping:
-#         AUTH_LDAP_SENTRY_GROUP_ROLE_MAPPING = {
-#             'owner': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER'),
-#             'manager': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER'),
-#             'admin': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN'),
-#             'member': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER'),
-#         }
+    group_role_mapping = env('LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER') or env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER') or env(
+        'LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN') or env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER') or False
+    if group_role_mapping:
+        AUTH_LDAP_SENTRY_GROUP_ROLE_MAPPING = {
+            'owner': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER'),
+            'manager': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER'),
+            'admin': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN'),
+            'member': env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER'),
+        }
 
-#     AUTH_LDAP_SENTRY_ORGANIZATION_GLOBAL_ACCESS = True
-#     AUTH_LDAP_SENTRY_SUBSCRIBE_BY_DEFAULT = True
-#     AUTH_LDAP_SENTRY_USERNAME_FIELD = 'sAMAccountName'
+    AUTH_LDAP_SENTRY_ORGANIZATION_GLOBAL_ACCESS = True
+    AUTH_LDAP_SENTRY_SUBSCRIBE_BY_DEFAULT = True
+    AUTH_LDAP_SENTRY_USERNAME_FIELD = 'sAMAccountName'
 
-#     SENTRY_MANAGED_USER_FIELDS = (
-#         'email', 'first_name', 'last_name', 'password', )
+    SENTRY_MANAGED_USER_FIELDS = (
+        'email', 'first_name', 'last_name', 'password', )
 
-#     AUTHENTICATION_BACKENDS = AUTHENTICATION_BACKENDS + (
-#         'sentry_ldap_auth.backend.SentryLdapBackend',
-#     )
+    AUTHENTICATION_BACKENDS = AUTHENTICATION_BACKENDS + (
+        'sentry_ldap_auth.backend.SentryLdapBackend',
+    )
 
-#     ldap_debug = env('LDAP_DEBUG') or False
-#     if ldap_debug:
-#         logger = logging.getLogger('django_auth_ldap')
-#         logger.addHandler(logging.StreamHandler())
-#         logger.addHandler(logging.FileHandler('/tmp/ldap2.log'))
-#         logger.setLevel('DEBUG')
+    ldap_debug = env('LDAP_DEBUG') or False
+    if ldap_debug:
+        logger = logging.getLogger('django_auth_ldap')
+        logger.addHandler(logging.StreamHandler())
+        logger.addHandler(logging.FileHandler('/tmp/ldap2.log'))
+        logger.setLevel('DEBUG')
 
-#         LOGGING['overridable'] = ['sentry', 'django_auth_ldap']
-#         LOGGING['loggers']['django_auth_ldap'] = {
-#             'handlers': ['console'],
-#             'level': 'DEBUG'
-#         }
+        LOGGING['overridable'] = ['sentry', 'django_auth_ldap']
+        LOGGING['loggers']['django_auth_ldap'] = {
+            'handlers': ['console'],
+            'level': 'DEBUG'
+        }

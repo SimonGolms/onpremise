@@ -82,6 +82,39 @@ parameters:
     value: ""
   - name: SENTRY_SMTP_HOSTNAME
     value: ""
+  # LDAP
+  - name: LDAP_BIND_DN
+    value: ""
+  - name: LDAP_BIND_PASSWORD
+    value: ""
+  - name: LDAP_SERVER
+    value: "ldap://my.ldapserver.com"
+  - name: LDAP_SELF_SIGNED_CERT
+    value: "False"
+  - name: LDAP_USER_SEARCH_BASE_DN
+    value: "DC=domain,DC=com"
+  - name: LDAP_USER_SEARCH_FILTER
+    value: "(&(objectClass=organizationalPerson)(|(sAMAccountName=%(user)s)(mail=%(user)s)))"
+  - name: LDAP_GROUP_SEARCH_BASE_DN
+    value: "DC=domain,DC=com"
+  - name: LDAP_GROUP_SEARCH_FILTER
+    value: "(objectClass=group)"
+  - name: LDAP_DEFAULT_EMAIL_DOMAIN
+    value: "domain.com"
+  - name: LDAP_DEFAULT_SENTRY_ORGANIZATION
+    value: "Sentry"
+  - name: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
+    value: "member"
+  - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
+    value: "sysadmins"
+  - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
+    value: "CN=sentry-manager,DC=domain,DC=com"
+  - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
+    value: "CN=sentry-admin,DC=domain,DC=com"
+  - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
+    value: "CN=sentry-member,DC=domain,DC=com"
+  - name: LDAP_DEBUG
+    value: "True"
 objects:
   - apiVersion: v1
     kind: ConfigMap
@@ -122,6 +155,22 @@ objects:
       SENTRY_SERVER_EMAIL: "${SENTRY_SERVER_EMAIL}"
       SENTRY_MAILGUN_API_KEY: "${SENTRY_MAILGUN_API_KEY}"
       SENTRY_SMTP_HOSTNAME: "${SENTRY_SMTP_HOSTNAME}"
+      LDAP_BIND_DN: "${LDAP_BIND_DN}"
+      LDAP_BIND_PASSWORD: "${LDAP_BIND_PASSWORD}"
+      LDAP_SERVER: "${LDAP_SERVER}"
+      LDAP_SELF_SIGNED_CERT: "${LDAP_SELF_SIGNED_CERT}"
+      LDAP_USER_SEARCH_BASE_DN: "${LDAP_USER_SEARCH_BASE_DN}"
+      LDAP_USER_SEARCH_FILTER: "${LDAP_USER_SEARCH_FILTER}"
+      LDAP_GROUP_SEARCH_BASE_DN: "${LDAP_GROUP_SEARCH_BASE_DN}"
+      LDAP_GROUP_SEARCH_FILTER: "${LDAP_GROUP_SEARCH_FILTER}"
+      LDAP_DEFAULT_EMAIL_DOMAIN: "${LDAP_DEFAULT_EMAIL_DOMAIN}"
+      LDAP_DEFAULT_SENTRY_ORGANIZATION: "${LDAP_DEFAULT_SENTRY_ORGANIZATION}"
+      LDAP_SENTRY_ORGANIZATION_ROLE_TYPE: "${LDAP_SENTRY_ORGANIZATION_ROLE_TYPE}"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER}"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER}"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN}"
+      LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER: "${LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER}"
+      LDAP_DEBUG: "${LDAP_DEBUG}"
   - apiVersion: v1
     kind: ImageStream
     metadata:
@@ -171,6 +220,81 @@ objects:
       strategy:
         dockerStrategy:
           env:
+            - name: LDAP_BIND_DN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_BIND_DN
+                  name: "sentry-secret"
+            - name: LDAP_BIND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_BIND_PASSWORD
+                  name: "sentry-secret"
+            - name: LDAP_SERVER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SERVER
+                  name: "sentry-secret"
+            - name: LDAP_USER_SEARCH_BASE_DN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_USER_SEARCH_BASE_DN
+                  name: "sentry-secret"
+            - name: LDAP_USER_SEARCH_FILTER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_USER_SEARCH_FILTER
+                  name: "sentry-secret"
+            - name: LDAP_GROUP_SEARCH_BASE_DN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_GROUP_SEARCH_BASE_DN
+                  name: "sentry-secret"
+            - name: LDAP_GROUP_SEARCH_FILTER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_GROUP_SEARCH_FILTER
+                  name: "sentry-secret"
+            - name: LDAP_DEFAULT_EMAIL_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_DEFAULT_EMAIL_DOMAIN
+                  name: "sentry-secret"
+            - name: LDAP_DEFAULT_SENTRY_ORGANIZATION
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_DEFAULT_SENTRY_ORGANIZATION
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_ORGANIZATION_ROLE_TYPE
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN
+                  name: "sentry-secret"
+            - name: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER
+                  name: "sentry-secret"
+            - name: LDAP_DEBUG
+              valueFrom:
+                secretKeyRef:
+                  key: LDAP_DEBUG
+                  name: "sentry-secret"
             - name: SENTRY_EVENT_RETENTION_DAYS
               valueFrom:
                 configMapKeyRef:
