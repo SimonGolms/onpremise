@@ -367,3 +367,26 @@ SENTRY_FEATURES.update(
 # BITBUCKET_CONSUMER_KEY = 'YOUR_BITBUCKET_CONSUMER_KEY'
 # BITBUCKET_CONSUMER_SECRET = 'YOUR_BITBUCKET_CONSUMER_SECRET'
 
+#######################
+# OpenIDConnect Auth  #
+######################
+
+sentry_oidc = env('OIDC_CLIENT_ID') or False
+
+if sentry_oidc:
+    OIDC_CLIENT_ID = str(env('OIDC_CLIENT_ID'))
+    OIDC_CLIENT_SECRET = str(env('OIDC_CLIENT_SECRET'))
+    OIDC_SCOPE = str(env('OIDC_SCOPE'))
+    sentry_oidc_domain = env('OIDC_DOMAIN') or False
+
+    if sentry_oidc_domain:
+        OIDC_DOMAIN = str(env('OIDC_DOMAIN'))
+        
+        sentry_oidc_issuer = env('OIDC_ISSUER') or False
+        if sentry_oidc_domain:
+            OIDC_DOMAIN = str(env('OIDC_DOMAIN'))
+    else:
+        OIDC_AUTHORIZATION_ENDPOINT = str(env('OIDC_AUTHORIZATION_ENDPOINT'))
+        OIDC_TOKEN_ENDPOINT = str(env('OIDC_TOKEN_ENDPOINT'))
+        OIDC_USERINFO_ENDPOINT = str(env('OIDC_USERINFO_ENDPOINT'))
+        OIDC_ISSUER = str(env('OIDC_ISSUER'))

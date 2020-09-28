@@ -82,6 +82,27 @@ parameters:
     value: ""
   - name: SENTRY_SMTP_HOSTNAME
     value: ""
+  # OpenID Connect
+  - name: OIDC_CLIENT_ID
+    value: ""
+  - name: OIDC_CLIENT_SECRET
+    value: ""
+  - name: OIDC_SCOPE
+    value: "openid email"
+  - name: OIDC_DOMAIN
+    value: ""
+    description: |
+      defines where the OIDC configuration is going to be pulled from. 
+      If your provider doesn't support the OIDC_DOMAIN, then you have to set these required endpoints by yourself (autorization_endpoint, token_endpoint, userinfo_endpoint, issuer).
+  - name: OIDC_AUTHORIZATION_ENDPOINT
+    value: ""
+  - name: OIDC_TOKEN_ENDPOINT
+    value: ""
+  - name: OIDC_USERINFO_ENDPOINT
+    value: ""
+  - name: OIDC_ISSUER
+    value: ""
+    description: You can also define OIDC_ISSUER to change the default provider name in the UI, even when the OIDC_DOMAIN is set.
 objects:
   - apiVersion: v1
     kind: ConfigMap
@@ -122,12 +143,20 @@ objects:
       SENTRY_SERVER_EMAIL: "${SENTRY_SERVER_EMAIL}"
       SENTRY_MAILGUN_API_KEY: "${SENTRY_MAILGUN_API_KEY}"
       SENTRY_SMTP_HOSTNAME: "${SENTRY_SMTP_HOSTNAME}"
+      OIDC_CLIENT_ID: "${OIDC_CLIENT_ID}"
+      OIDC_CLIENT_SECRET: "${OIDC_CLIENT_SECRET}"
+      OIDC_SCOPE: "${OIDC_SCOPE}"
+      OIDC_DOMAIN: "${OIDC_DOMAIN}"
+      OIDC_AUTHORIZATION_ENDPOINT: "${OIDC_AUTHORIZATION_ENDPOINT}"
+      OIDC_TOKEN_ENDPOINT: "${OIDC_TOKEN_ENDPOINT}"
+      OIDC_USERINFO_ENDPOINT: "${OIDC_USERINFO_ENDPOINT}"
+      OIDC_ISSUER: "${OIDC_ISSUER}"
   - apiVersion: v1
     kind: ImageStream
     metadata:
       annotations:
         openshift.io/display-name: internal-sentry
-        io.sentry.plugins: "sentry-msteams"
+        io.sentry.plugins: "sentry-auth-oidc, sentry-msteams"
       labels:
         io.sentry.service: sentry
       name: internal-sentry
@@ -136,7 +165,7 @@ objects:
         local: true
       tags:
         - annotations:
-            io.sentry.plugins: "sentry-msteams"
+            io.sentry.plugins: "sentry-auth-oidc, sentry-msteams"
             openshift.io/display-name: internal-sentry
           from:
             kind: DockerImage
@@ -148,7 +177,7 @@ objects:
     metadata:
       annotations:
         description: "Sentry On-Premise Build"
-        io.sentry.plugins: "sentry-msteams"
+        io.sentry.plugins: "sentry-auth-oidc, sentry-msteams"
       name: internal-sentry
     spec:
       failedBuildsHistoryLimit: 5
@@ -171,6 +200,46 @@ objects:
       strategy:
         dockerStrategy:
           env:
+            - name: OIDC_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  key: OIDC_CLIENT_ID
+                  name: "sentry-secret"
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  key: OIDC_CLIENT_SECRET
+                  name: "sentry-secret"
+            - name: OIDC_SCOPE
+              valueFrom:
+                secretKeyRef:
+                  key: OIDC_SCOPE
+                  name: "sentry-secret"
+            - name: OIDC_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  key: OIDC_DOMAIN
+                  name: "sentry-secret"
+            - name: OIDC_AUTHORIZATION_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  key: OIDC_AUTHORIZATION_ENDPOINT
+                  name: "sentry-secret"
+            - name: OIDC_TOKEN_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  key: OIDC_TOKEN_ENDPOINT
+                  name: "sentry-secret"
+            - name: OIDC_USERINFO_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  key: OIDC_USERINFO_ENDPOINT
+                  name: "sentry-secret"
+            - name: OIDC_ISSUER
+              valueFrom:
+                secretKeyRef:
+                  key: OIDC_ISSUER
+                  name: "sentry-secret"
             - name: SENTRY_EVENT_RETENTION_DAYS
               valueFrom:
                 configMapKeyRef:
