@@ -176,7 +176,7 @@ objects:
     metadata:
       annotations:
         openshift.io/display-name: internal-sentry
-        io.sentry.plugins: "sentry-msteams"
+        io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
       labels:
         io.sentry.service: sentry
       name: internal-sentry
@@ -185,7 +185,7 @@ objects:
         local: true
       tags:
         - annotations:
-            io.sentry.plugins: "sentry-msteams"
+            io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
             openshift.io/display-name: internal-sentry
           from:
             kind: DockerImage
@@ -197,7 +197,7 @@ objects:
     metadata:
       annotations:
         description: "Sentry On-Premise Build"
-        io.sentry.plugins: "sentry-msteams"
+        io.sentry.plugins: "sentry-ldap-auth, sentry-msteams"
       name: internal-sentry
     spec:
       failedBuildsHistoryLimit: 5
