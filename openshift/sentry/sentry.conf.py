@@ -384,7 +384,7 @@ if sentry_oidc:
         
         sentry_oidc_issuer = env('OIDC_ISSUER') or False
         if sentry_oidc_issuer:
-            OIDC_DOMAIN = str(env('OIDC_DOMAIN'))
+            OIDC_ISSUER = str(env('OIDC_ISSUER'))
     else:
         OIDC_AUTHORIZATION_ENDPOINT = str(env('OIDC_AUTHORIZATION_ENDPOINT'))
         OIDC_TOKEN_ENDPOINT = str(env('OIDC_TOKEN_ENDPOINT'))
