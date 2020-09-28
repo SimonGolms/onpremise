@@ -44,33 +44,35 @@ More Information: https://docs.sentry.io/server/plugins/
 
 ### 3rd Party Plugins
 
-#### sentry-ldap-auth
+#### sentry-auth-oidc
 
-> A Django custom authentication backend for Sentry. This module extends the functionality of django-auth-ldap with Sentry specific features.
+> An SSO provider for Sentry which enables OpenID Connect Apps authentication.
 
-Set the following environment variables for your LDAP integration inside of the created `Secret`:
+Add `https://sentry.example.com/auth/sso/` to the authorized redirect URIs (on your IdP).
+
+Set the following environment variables for your oidc integration inside of the created `Secret`:
 
 ```yaml
 # Example
-LDAP_BIND_DN: ""
-LDAP_BIND_PASSWORD: ""
-LDAP_SERVER: "ldap://my.ldapserver.com"
-LDAP_SELF_SIGNED_CERT: "False"
-LDAP_USER_SEARCH_BASE_DN: "DC=domain,DC=com"
-LDAP_USER_SEARCH_FILTER: "(&(objectClass=organizationalPerson)(|(sAMAccountName=%(user)s)(mail=%(user)s)))"
-LDAP_GROUP_SEARCH_BASE_DN: "DC=domain,DC=com"
-LDAP_GROUP_SEARCH_FILTER: "(objectClass=group)"
-LDAP_DEFAULT_EMAIL_DOMAIN: "domain.com"
-LDAP_DEFAULT_SENTRY_ORGANIZATION: "Sentry"
-LDAP_SENTRY_ORGANIZATION_ROLE_TYPE: "member"
-LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER: "sysadmins"
-LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER: "CN=sentry-manager,DC=domain,DC=com"
-LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN: "CN=sentry-admin,DC=domain,DC=com"
-LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER: "CN=sentry-member,DC=domain,DC=com"
-LDAP_DEBUG: "True"
+OIDC_CLIENT_ID: ""
+OIDC_CLIENT_SECRET: ""
+OIDC_SCOPE: "openid email"
+OIDC_DOMAIN: "https://accounts.google.com"
 ```
 
-More Information: https://github.com/Banno/getsentry-ldap-auth
+The OIDC_DOMAIN defines where the OIDC configuration is going to be pulled from. Basically it specifies the OIDC server and adds the path `.well-known/openid-configuration` to it. That's where different endpoint paths can be found.
+
+You can also define `OIDC_ISSUER` to change the default provider name in the UI, even when the `OIDC_DOMAIN` is set.
+
+If your provider doesn't support the `OIDC_DOMAIN`, then you have to set these required endpoints by yourself (autorization_endpoint, token_endpoint, userinfo_endpoint, issuer).
+
+```yaml
+# Example
+OIDC_AUTHORIZATION_ENDPOINT: "https://accounts.google.com/o/oauth2/v2/auth"
+OIDC_TOKEN_ENDPOINT: "https://www.googleapis.com/oauth2/v4/token"
+OIDC_USERINFO_ENDPOINT: "[openid email](https://www.googleapis.com/oauth2/v3/userinfo)"
+OIDC_ISSUER: "Google"
+```
 
 #### sentry-msteams
 
@@ -86,5 +88,6 @@ More Information: https://github.com/Neko-Design/sentry-msteams
 oc delete all -l app=<name>
 oc delete configmap <configmap-name>
 oc delete secret <secret-name>
+# ATTTENTION! The following command is only optional and will permanently delete all of your data.
 oc delete pvc -l app=<name>
 ```

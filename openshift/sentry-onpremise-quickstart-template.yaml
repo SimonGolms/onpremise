@@ -102,7 +102,9 @@ parameters:
     value: ""
   - name: OIDC_ISSUER
     value: ""
-    description: You can also define OIDC_ISSUER to change the default provider name in the UI, even when the OIDC_DOMAIN is set.
+    description: |
+      You can also define OIDC_ISSUER to change the default provider name in the UI, even when the OIDC_DOMAIN is set.
+      Else the displayed name can be a ugly URL.
 objects:
   - apiVersion: v1
     kind: ConfigMap
