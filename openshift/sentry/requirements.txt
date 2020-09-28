@@ -1,3 +1,2 @@
 # Add plugins here
-sentry-ldap-auth
 sentry-msteams
