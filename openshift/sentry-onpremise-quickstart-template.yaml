@@ -12,7 +12,7 @@ metadata:
       It specializes in monitoring errors and extracting all the information needed to do a proper post-mortem without any of the hassle of the standard user feedback loop.
     iconClass: "fa fa-bug"
     openshift.io/display-name: "Sentry On-Premise (Quickstart)"
-    openshift.io/documentation-url: "https://github.com/matzehecht/sentry-onpremise-openshift"
+    openshift.io/documentation-url: "https://github.com/SimonGolms/sentry-onpremise-openshift"
     tags: "sentry,monitoring,error,bugs,quickstart"
 parameters:
   - name: HTTP_PROXY
@@ -195,7 +195,7 @@ objects:
         contextDir: "/openshift/sentry"
         git:
           uri: >-
-            https://github.com/matzehecht/sentry-onpremise-openshift.git
+            https://github.com/SimonGolms/sentry-onpremise-openshift.git
         sourceSecret:
           name: cd-user-token
         type: Git
@@ -883,7 +883,7 @@ objects:
               image: "curlimages/curl:latest"
               args:
                 - -L 
-                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/sentry/{config.yml,sentry.conf.py,requirements.txt}"
+                - "https://raw.githubusercontent.com/SimonGolms/sentry-onpremise-openshift/master/openshift/sentry/{config.yml,sentry.conf.py,requirements.txt}"
                 - -o 
                 - "/etc/sentry/#1"
               volumeMounts:
@@ -1454,7 +1454,7 @@ objects:
               image: "curlimages/curl:latest"
               args:
                 - -L 
-                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/nginx/nginx.conf"
+                - "https://raw.githubusercontent.com/SimonGolms/sentry-onpremise-openshift/master/openshift/nginx/nginx.conf"
                 - -o 
                 - "/etc/nginx/nginx.conf"
               volumeMounts:
@@ -1575,7 +1575,7 @@ objects:
               image: "curlimages/curl:latest"
               args:
                 - -L 
-                - "https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/relay/config.yml"
+                - "https://raw.githubusercontent.com/SimonGolms/sentry-onpremise-openshift/master/openshift/relay/config.yml"
                 - -o 
                 - "/work/.relay/config.yml"
               volumeMounts:
@@ -2618,7 +2618,7 @@ objects:
               image: "curlimages/curl:latest"
               args:
                 - -L 
-                - https://raw.githubusercontent.com/matzehecht/sentry-onpremise-openshift/master/openshift/symbolicator/config.yml 
+                - https://raw.githubusercontent.com/SimonGolms/sentry-onpremise-openshift/master/openshift/symbolicator/config.yml 
                 - -o 
                 - /etc/symbolicator/config.yml
               volumeMounts:
