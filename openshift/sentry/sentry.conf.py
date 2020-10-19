@@ -33,6 +33,33 @@
 from sentry.conf.server import *  # NOQA
 from sentry.utils.types import Bool
 
+
+# Generously adapted from pynetlinux: https://git.io/JJmga
+def get_internal_network():
+    import ctypes
+    import fcntl
+    import math
+    import socket
+    import struct
+
+    iface = "eth0"
+    sockfd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    ifreq = struct.pack("16sH14s", iface, socket.AF_INET, b"\x00" * 14)
+    netmask_bits = 14
+    netmask = ctypes.c_uint(~(2**(32-netmask_bits)-1)).value
+
+    try:
+        ip = struct.unpack(
+            "!I", struct.unpack("16sH2x4s8x", fcntl.ioctl(sockfd, 0x8915, ifreq))[2]
+        )[0]
+    except IOError:
+        return ()
+
+    base = socket.inet_ntoa(struct.pack("!I", ip & netmask))
+    return ("{0:s}/{1:d}".format(base, netmask_bits),)
+
+INTERNAL_SYSTEM_IPS = get_internal_network()
+
 postgres = env('SENTRY_POSTGRES_HOST') or (
     env('POSTGRES_PORT_5432_TCP_ADDR') and 'postgres')
 if postgres:
@@ -205,11 +232,31 @@ SENTRY_WEB_PORT = 9000
 SENTRY_WEB_OPTIONS = {
     "http": "%s:%s" % (SENTRY_WEB_HOST, SENTRY_WEB_PORT),
     "protocol": "uwsgi",
-    # This is needed to prevent https://git.io/fj7Lw
+    # This is needed in order to prevent https://git.io/fj7Lw
     "uwsgi-socket": None,
-    "http-keepalive": True,
+    "so-keepalive": True,
+    # Keep this between 15s-75s as that's what Relay supports
+    "http-keepalive": 15,
+    "http-chunked-input": True,
+    # the number of web workers
+    "workers": 3,
+    "threads": 4,
     "memory-report": False,
-    # 'workers': 3,  # the number of web workers
+    # Some stuff so uwsgi will cycle workers sensibly
+    "max-requests": 100000,
+    "max-requests-delta": 500,
+    "max-worker-lifetime": 86400,
+    # Duplicate options from sentry default just so we don't get
+    # bit by sentry changing a default value that we depend on.
+    "thunder-lock": True,
+    "log-x-forwarded-for": False,
+    "buffer-size": 32768,
+    "limit-post": 209715200,
+    "disable-logging": True,
+    "reload-on-rss": 600,
+    "ignore-sigpipe": True,
+    "ignore-write-errors": True,
+    "disable-write-exception": True,
 }
 
 ###########
@@ -291,14 +338,10 @@ SENTRY_FEATURES.update(
             "organizations:integrations-issue-basic",
             "organizations:integrations-issue-sync",
             "organizations:invite-members",
-            "organizations:new-issue-ui",
-            "organizations:repos",
-            "organizations:require-2fa",
-            "organizations:sentry10",
             "organizations:sso-basic",
             "organizations:sso-rippling",
             "organizations:sso-saml2",
-            "organizations:suggested-commits",
+            "organizations:performance-view",
             "projects:custom-inbound-filters",
             "projects:data-forwarding",
             "projects:discard-groups",
@@ -324,94 +367,26 @@ SENTRY_FEATURES.update(
 # BITBUCKET_CONSUMER_KEY = 'YOUR_BITBUCKET_CONSUMER_KEY'
 # BITBUCKET_CONSUMER_SECRET = 'YOUR_BITBUCKET_CONSUMER_SECRET'
 
+#######################
+# OpenIDConnect Auth  #
+######################
 
-#################
-# LDAP settings #
-#################
+sentry_oidc = env('OIDC_CLIENT_ID') or False
 
-sentry_ldap = env('LDAP_SERVER') or False
+if sentry_oidc:
+    OIDC_CLIENT_ID = str(env('OIDC_CLIENT_ID'))
+    OIDC_CLIENT_SECRET = str(env('OIDC_CLIENT_SECRET'))
+    OIDC_SCOPE = str(env('OIDC_SCOPE'))
+    sentry_oidc_domain = env('OIDC_DOMAIN') or False
 
-if sentry_ldap:
-    import ldap
-    import logging
-    from django_auth_ldap.config import LDAPSearch, GroupOfUniqueNamesType
-
-    AUTH_LDAP_SERVER_URI = str(env('LDAP_SERVER'))
-    AUTH_LDAP_BIND_DN = str(env('LDAP_BIND_DN'))
-    AUTH_LDAP_BIND_PASSWORD = str(env('LDAP_BIND_PASSWORD'))
-
-    ldap_self_signed_cert = bool(env('LDAP_SELF_SIGNED_CERT')) or False
-    if ldap_self_signed_cert:
-        # Ignore certificate errors to accept a self-signed cert.
-        LDAP_IGNORE_CERT_ERRORS = True
-        AUTH_LDAP_GLOBAL_OPTIONS = {
-            ldap.OPT_X_TLS_REQUIRE_CERT: ldap.OPT_X_TLS_NEVER
-        }
-
-    AUTH_LDAP_USER_SEARCH = LDAPSearch(
-        str(env('LDAP_USER_SEARCH_BASE_DN')),
-        ldap.SCOPE_SUBTREE,
-        str(env('LDAP_USER_SEARCH_FILTER')),
-    )
-
-    AUTH_LDAP_USER_ATTR_MAP = {
-        'first_name': 'givenName',
-        'last_name': 'sn',
-        'email': 'mail',
-        'name': 'displayName',
-    }
-
-    AUTH_LDAP_GROUP_TYPE = GroupOfUniqueNamesType()
-
-    AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
-        str(env('LDAP_GROUP_SEARCH_BASE_DN')),
-        ldap.SCOPE_SUBTREE,
-        str(env('LDAP_GROUP_SEARCH_FILTER')),
-    )
-
-    AUTH_LDAP_REQUIRE_GROUP = None
-    AUTH_LDAP_DENY_GROUP = None
-
-    AUTH_LDAP_FIND_GROUP_PERMS = False
-    AUTH_LDAP_CACHE_GROUPS = False
-    AUTH_LDAP_GROUP_CACHE_TIMEOUT = 3600
-
-    AUTH_LDAP_DEFAULT_EMAIL_DOMAIN = str(env('LDAP_DEFAULT_EMAIL_DOMAIN'))
-    AUTH_LDAP_DEFAULT_SENTRY_ORGANIZATION = str(env(
-        'LDAP_DEFAULT_SENTRY_ORGANIZATION'))
-    AUTH_LDAP_SENTRY_ORGANIZATION_ROLE_TYPE = str(env(
-        'LDAP_SENTRY_ORGANIZATION_ROLE_TYPE'))
-
-    group_role_mapping = env('LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER') or env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER') or env(
-        'LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN') or env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER') or False
-    if group_role_mapping:
-        AUTH_LDAP_SENTRY_GROUP_ROLE_MAPPING = {
-            'owner': str(env('LDAP_SENTRY_GROUP_ROLE_MAPPING_OWNER')),
-            'manager': str(env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MANAGER')),
-            'admin': str(env('LDAP_SENTRY_GROUP_ROLE_MAPPING_ADMIN')),
-            'member': str(env('LDAP_SENTRY_GROUP_ROLE_MAPPING_MEMBER')),
-        }
-
-    AUTH_LDAP_SENTRY_ORGANIZATION_GLOBAL_ACCESS = True
-    AUTH_LDAP_SENTRY_SUBSCRIBE_BY_DEFAULT = True
-    AUTH_LDAP_SENTRY_USERNAME_FIELD = 'sAMAccountName'
-
-    SENTRY_MANAGED_USER_FIELDS = (
-        'email', 'first_name', 'last_name', 'password', )
-
-    AUTHENTICATION_BACKENDS = AUTHENTICATION_BACKENDS + (
-        'sentry_ldap_auth.backend.SentryLdapBackend',
-    )
-
-    ldap_debug = env('LDAP_DEBUG') or False
-    if ldap_debug:
-        logger = logging.getLogger('django_auth_ldap')
-        logger.addHandler(logging.StreamHandler())
-        logger.addHandler(logging.FileHandler('/tmp/ldap2.log'))
-        logger.setLevel('DEBUG')
-
-        LOGGING['overridable'] = ['sentry', 'django_auth_ldap']
-        LOGGING['loggers']['django_auth_ldap'] = {
-            'handlers': ['console'],
-            'level': 'DEBUG'
-        }
+    if sentry_oidc_domain:
+        OIDC_DOMAIN = str(env('OIDC_DOMAIN'))
+        
+        sentry_oidc_issuer = env('OIDC_ISSUER') or False
+        if sentry_oidc_issuer:
+            OIDC_ISSUER = str(env('OIDC_ISSUER'))
+    else:
+        OIDC_AUTHORIZATION_ENDPOINT = str(env('OIDC_AUTHORIZATION_ENDPOINT'))
+        OIDC_TOKEN_ENDPOINT = str(env('OIDC_TOKEN_ENDPOINT'))
+        OIDC_USERINFO_ENDPOINT = str(env('OIDC_USERINFO_ENDPOINT'))
+        OIDC_ISSUER = str(env('OIDC_ISSUER'))
