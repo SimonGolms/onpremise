@@ -1966,6 +1966,7 @@ objects:
               volumeMounts:
                 - mountPath: /var/lib/postgresql/data
                   name: sentry-postgres
+                  subPath: pgdata
           restartPolicy: Always
           serviceAccountName: "${SERVICE_ACCOUNT_NAME}"
           volumes:
