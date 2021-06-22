@@ -59,7 +59,7 @@ def get_internal_network():
     netmask_bits = 32 - int(round(math.log(ctypes.c_uint32(~netmask).value + 1, 2), 1))
     return "{0:s}/{1:d}".format(base, netmask_bits)
 
-INTERNAL_SYSTEM_IPS = get_internal_network()
+INTERNAL_SYSTEM_IPS = (get_internal_network(),)
 
 postgres = env('SENTRY_POSTGRES_HOST') or (
     env('POSTGRES_PORT_5432_TCP_ADDR') and 'postgres')
