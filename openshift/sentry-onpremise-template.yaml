@@ -376,7 +376,7 @@ objects:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 100Mi
+          storage: 4Gi
     status: {}
   - apiVersion: v1
     kind: PersistentVolumeClaim
@@ -390,7 +390,7 @@ objects:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 100Mi
+          storage: 60Gi
     status: {}
   - apiVersion: v1
     kind: DeploymentConfig
@@ -473,7 +473,7 @@ objects:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 100Mi
+          storage: 16Gi
     status: {}
   - apiVersion: v1
     kind: PersistentVolumeClaim
@@ -674,7 +674,7 @@ objects:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 100Mi
+          storage: 60Gi
     status: {}
   - apiVersion: v1
     kind: DeploymentConfig
@@ -1571,7 +1571,7 @@ objects:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 100Mi
+          storage: 5Gi
     status: {}
   - apiVersion: v1
     kind: PersistentVolumeClaim
