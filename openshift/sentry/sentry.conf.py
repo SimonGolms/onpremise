@@ -237,32 +237,35 @@ SENTRY_DIGESTS = "sentry.digests.backends.redis.RedisBackend"
 SENTRY_WEB_HOST = "0.0.0.0"
 SENTRY_WEB_PORT = 9000
 SENTRY_WEB_OPTIONS = {
-    "http-keepalive": True,
+    "http": "%s:%s" % (SENTRY_WEB_HOST, SENTRY_WEB_PORT),
+    "protocol": "uwsgi",
+    # This is needed in order to prevent https://git.io/fj7Lw
+    "uwsgi-socket": None,
     "so-keepalive": True,
-    "http-auto-chunked": True,
+    # Keep this between 15s-75s as that's what Relay supports
+    "http-keepalive": 15,
     "http-chunked-input": True,
     # the number of web workers
-    'workers': 3,
-    'threads': 4,
-    # Turn off memory reporting
+    "workers": 3,
+    "threads": 4,
     "memory-report": False,
     # Some stuff so uwsgi will cycle workers sensibly
-    'max-requests': 100000,
-    'max-requests-delta': 500,
-    'max-worker-lifetime': 86400,
+    "max-requests": 100000,
+    "max-requests-delta": 500,
+    "max-worker-lifetime": 86400,
     # Duplicate options from sentry default just so we don't get
     # bit by sentry changing a default value that we depend on.
-    'thunder-lock': True,
-    'log-x-forwarded-for': False,
-    'buffer-size': 32768,
+    "thunder-lock": True,
+    "log-x-forwarded-for": False,
+    "buffer-size": 32768,
     # Relay cannot authenticate without the following
     'post-buffering': 32768,
-    'limit-post': 209715200,
-    'disable-logging': True,
-    'reload-on-rss': 600,
-    'ignore-sigpipe': True,
-    'ignore-write-errors': True,
-    'disable-write-exception': True,
+    "limit-post": 209715200,
+    "disable-logging": True,
+    "reload-on-rss": 600,
+    "ignore-sigpipe": True,
+    "ignore-write-errors": True,
+    "disable-write-exception": True,
 }
 
 ###########
