@@ -237,10 +237,6 @@ SENTRY_DIGESTS = "sentry.digests.backends.redis.RedisBackend"
 SENTRY_WEB_HOST = "0.0.0.0"
 SENTRY_WEB_PORT = 9000
 SENTRY_WEB_OPTIONS = {
-    "http": "%s:%s" % (SENTRY_WEB_HOST, SENTRY_WEB_PORT),
-    "protocol": "uwsgi",
-    # This is needed in order to prevent https://git.io/fj7Lw
-    "uwsgi-socket": None,
     "http-keepalive": True,
     "so-keepalive": True,
     "http-auto-chunked": True,
