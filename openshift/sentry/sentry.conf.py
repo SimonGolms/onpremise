@@ -216,12 +216,6 @@ SENTRY_SEARCH = "sentry.search.snuba.EventsDatasetSnubaSearchBackend"
 SENTRY_SEARCH_OPTIONS = {}
 SENTRY_TAGSTORE_OPTIONS = {}
 
-#########
-# RELAY #
-#########
-
-SENTRY_RELAY_OPEN_REGISTRATION = True
-
 ###########
 # Digests #
 ###########
@@ -237,13 +231,10 @@ SENTRY_DIGESTS = "sentry.digests.backends.redis.RedisBackend"
 SENTRY_WEB_HOST = "0.0.0.0"
 SENTRY_WEB_PORT = 9000
 SENTRY_WEB_OPTIONS = {
-    "http": "%s:%s" % (SENTRY_WEB_HOST, SENTRY_WEB_PORT),
-    "protocol": "uwsgi",
-    # This is needed in order to prevent https://git.io/fj7Lw
-    "uwsgi-socket": None,
     "so-keepalive": True,
     # Keep this between 15s-75s as that's what Relay supports
     "http-keepalive": 75,
+    "http-auto-chunked": True,
     "http-chunked-input": True,
     # the number of web workers
     "workers": 3,
