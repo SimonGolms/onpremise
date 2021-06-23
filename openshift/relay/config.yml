@@ -1,4 +1,5 @@
 relay:
+  mode: proxy
   upstream: "http://web:9000/"
   host: 0.0.0.0
   port: 3000
@@ -7,6 +8,8 @@ logging:
 processing:
   enabled: true
   kafka_config:
-    - { name: "bootstrap.servers", value: "kafka-service:9092" }
-    - { name: "message.max.bytes", value: 50000000 } # 50MB
+    - name: "bootstrap.servers"
+      value: kafka-service:9092
+    - name: "message.max.bytes"
+      value: 50000000  # 50MB or bust
   redis: redis://redis:6379
