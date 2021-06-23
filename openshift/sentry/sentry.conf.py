@@ -241,9 +241,9 @@ SENTRY_WEB_OPTIONS = {
     "protocol": "uwsgi",
     # This is needed in order to prevent https://git.io/fj7Lw
     "uwsgi-socket": None,
+    "http-keepalive": True,
     "so-keepalive": True,
-    # Keep this between 15s-75s as that's what Relay supports
-    "http-keepalive": 15,
+    "http-auto-chunked": True,
     "http-chunked-input": True,
     # the number of web workers
     "workers": 3,
