@@ -369,6 +369,13 @@ SENTRY_FEATURES.update(
 # BITBUCKET_CONSUMER_KEY = 'YOUR_BITBUCKET_CONSUMER_KEY'
 # BITBUCKET_CONSUMER_SECRET = 'YOUR_BITBUCKET_CONSUMER_SECRET'
 
+#########
+# Relay #
+#########
+
+SENTRY_RELAY_WHITELIST_PK = []
+SENTRY_RELAY_OPEN_REGISTRATION = True
+
 #######################
 # OpenIDConnect Auth  #
 ######################
