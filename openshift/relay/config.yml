@@ -1,9 +1,9 @@
 relay:
-  upstream: "http://nginx:80/"
+  upstream: "http://web:9000/"
   host: 0.0.0.0
   port: 3000
 logging:
-  level: WARN
+  level: INFO
 processing:
   enabled: true
   kafka_config:
