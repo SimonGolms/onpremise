@@ -216,6 +216,12 @@ SENTRY_SEARCH = "sentry.search.snuba.EventsDatasetSnubaSearchBackend"
 SENTRY_SEARCH_OPTIONS = {}
 SENTRY_TAGSTORE_OPTIONS = {}
 
+#########
+# RELAY #
+#########
+
+SENTRY_RELAY_OPEN_REGISTRATION = True
+
 ###########
 # Digests #
 ###########
