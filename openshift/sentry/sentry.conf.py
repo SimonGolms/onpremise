@@ -242,26 +242,26 @@ SENTRY_WEB_OPTIONS = {
     "http-auto-chunked": True,
     "http-chunked-input": True,
     # the number of web workers
-    "workers": 3,
-    "threads": 4,
+    'workers': 3,
+    'threads': 4,
     "memory-report": False,
     # Some stuff so uwsgi will cycle workers sensibly
-    "max-requests": 100000,
-    "max-requests-delta": 500,
-    "max-worker-lifetime": 86400,
+    'max-requests': 100000,
+    'max-requests-delta': 500,
+    'max-worker-lifetime': 86400,
     # Duplicate options from sentry default just so we don't get
     # bit by sentry changing a default value that we depend on.
-    "thunder-lock": True,
-    "log-x-forwarded-for": False,
-    "buffer-size": 32768,
+    'thunder-lock': True,
+    'log-x-forwarded-for': False,
+    'buffer-size': 32768,
     # Relay cannot authenticate without the following
-    "post-buffering": 32768,
-    "limit-post": 209715200,
-    "disable-logging": True,
-    "reload-on-rss": 600,
-    "ignore-sigpipe": True,
-    "ignore-write-errors": True,
-    "disable-write-exception": True,
+    'post-buffering': 32768,
+    'limit-post': 209715200,
+    'disable-logging': True,
+    'reload-on-rss': 600,
+    'ignore-sigpipe': True,
+    'ignore-write-errors': True,
+    'disable-write-exception': True,
 }
 
 ###########
