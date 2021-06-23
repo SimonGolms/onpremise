@@ -239,6 +239,7 @@ SENTRY_WEB_OPTIONS = {
     # Without these it doesn't do keep-alives causing
     # issues with Relay's direct requests.
     "http-keepalive": True,
+    "http-auto-chunked": True,
     "http-chunked-input": True,
     # the number of web workers
     'workers': 3,
