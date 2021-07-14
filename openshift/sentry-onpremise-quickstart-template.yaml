@@ -196,8 +196,8 @@ objects:
         git:
           uri: >-
             https://github.com/SimonGolms/sentry-onpremise-openshift.git
-        sourceSecret:
-          name: cd-user-token
+        #sourceSecret:
+        #  name: cd-user-token
         type: Git
       strategy:
         dockerStrategy:
@@ -896,6 +896,8 @@ objects:
                   value: "${HTTPS_PROXY}"
                 - name: no_proxy
                   value: "${NO_PROXY}"
+              securityContext:
+                privileged: true
           restartPolicy: OnFailure
           volumes:
             - name: sentry-conf
@@ -1467,6 +1469,8 @@ objects:
                   value: "${HTTPS_PROXY}"
                 - name: no_proxy
                   value: "${NO_PROXY}"
+              securityContext:
+                privileged: true
           restartPolicy: OnFailure
           volumes:
             - name: sentry-nginx-conf
@@ -1588,6 +1592,8 @@ objects:
                   value: "${HTTPS_PROXY}"
                 - name: no_proxy
                   value: "${NO_PROXY}"
+              securityContext:
+                privileged: true
           restartPolicy: OnFailure
           volumes:
             - name: sentry-relay-conf
@@ -1781,8 +1787,10 @@ objects:
               volumeMounts:
                 - mountPath: /var/lib/kafka/data
                   name: sentry-kafka
+                  subPath: kafka-data
                 - mountPath: /var/lib/kafka/log
                   name: sentry-kafka-log
+                  subPath: kafka-logs
                 - mountPath: /etc/kafka/secrets
                   name: sentry-secrets
           restartPolicy: Always
@@ -1850,8 +1858,10 @@ objects:
               volumeMounts:
                 - mountPath: /var/lib/kafka/data
                   name: sentry-kafka
+                  subPath: kafka-data
                 - mountPath: /var/lib/kafka/log
                   name: sentry-kafka-log
+                  subPath: kafka-logs
                 - mountPath: /etc/kafka/secrets
                   name: sentry-secrets
               command: 
@@ -2632,6 +2642,8 @@ objects:
                   value: "${HTTPS_PROXY}"
                 - name: no_proxy
                   value: "${NO_PROXY}"
+              securityContext:
+                privileged: true
           restartPolicy: OnFailure
           volumes:
             - name: sentry-symbolicator-conf
